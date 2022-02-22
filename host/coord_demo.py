@@ -36,6 +36,9 @@ def coord_data_received_callback(xbee_message):
     addr_64 = xbee_message.remote_device.get_64bit_addr()
     data = xbee_message.data.decode("utf8")
     print("Received data from %s: %s" % (addr_64, data))
+    data = json.loads(data)
+    print(data.get("response"))
+    print(type(data.get("response")))
 
 
 def main():

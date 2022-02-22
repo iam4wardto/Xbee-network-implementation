@@ -26,14 +26,16 @@ class serial_param:
 class params:
     def __init__(self):
         pass
-    # position
+    # size of three windows
     main_width = 900
     main_height = 600
     logger_width = 500
     logger_height = 250
-    coord_pos = [20, 200] # coord pos in the node editor
+    func_width = 500
+    func_height = 350
+    coord_pos = [20, 200] # int coord pos in the node editor
 
-    # color
+    # colors
     rgb_red = [255, 0, 0]
     rgb_green = [0, 255, 0]
     rgb_white = [255, 255, 255]
@@ -41,6 +43,41 @@ class params:
 
 #net = params() # instantiate coord module
 
+def _help(message): # to add help tooltip for the last item
+    last_item = dpg.last_item()
+    group = dpg.add_group(horizontal=True)
+    dpg.move_item(last_item, parent=group)
+    dpg.capture_next_item(lambda s: dpg.move_item(s, parent=group))
+    t = dpg.add_text("(?)", color=[0, 255, 0])
+    with dpg.tooltip(t):
+        dpg.add_text(message)
+
+def init_nodes_temp_table():
+    '''
+    to int, put n/a in the temperature list in function panel
+    :return:
+    '''
+    for node in net.nodes:
+        with dpg.table_row(parent="tableFuncPanelTemps"):
+            dpg.add_text(node.get_node_id())
+            dpg.add_text("n/a")
+
+def get_temp_callback():
+    node_name = dpg.get_value("comboNodes")
+    if node_name == None: # user not selected
+        return
+    """
+            command list encoded in JSON
+            "category": 0, 1, 2, 3 i.e. device, time, led, info
+            "params": same input for this function
+            """
+    command_params = {"category": 3, "id": 6, "params": [6, True]}
+    DATA_TO_SEND = json.dumps(command_params)
+    for obj in net.nodes_obj:
+        if obj.node_xbee.get_node_id() == node_name:
+            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(), DATA_TO_SEND)
+            net.log.log_debug("[{}.get_temp {}]".format(node_name,send_response.transmit_status))
+            break
 
 def btnOpenPort_callback(sender, app_data, user_data):
     try:
@@ -74,6 +111,7 @@ def btnOpenPort_callback(sender, app_data, user_data):
         net.connections = net.xbee_network.get_connections()
         dpg.hide_item("winLoadingIndicator")
         refresh_node_editor()
+        init_nodes_temp_table()
 
     except Exception as err:
         print(err)
@@ -94,10 +132,12 @@ def max_node_view_callback(sender, app_data, user_data):
         dpg.set_item_label("btnMaxNodeView","Minimize")
         dpg.set_primary_window("winMain",True)
         dpg.hide_item("winLog")
+        dpg.hide_item("winFuncPanel")
     else:
         dpg.set_item_label("btnMaxNodeView", "Maximize")
         dpg.set_primary_window("winMain", False)
         dpg.show_item("winLog")
+        dpg.show_item("winFuncPanel")
 
 def exit_callback():
     print("Exit called...")
@@ -155,6 +195,7 @@ def refresh_node_editor():
     with dpg.table_row(parent="tableNodes"):
         put_node_into_list(net.coord)
 
+    net.nodes_obj = None # clear, if this is next refresh
     for index, node in enumerate(net.nodes, start=2):
         id = node.get_node_id()
         with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index),parent="nodeEditor"):
@@ -167,8 +208,11 @@ def refresh_node_editor():
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
                 # dpg.add_text("Network Link")
                 pass
+        # put each node info into list view
         with dpg.table_row(parent="tableNodes"):
             put_node_into_list(node)
+        # inherit RemoteXbeeDevice class, and construct our node_container object *important!
+        net.nodes_obj.append(node_container(node))
 
     # add links found by deep discovery
     dpg.delete_item("tableLinks", children_only=True)
@@ -188,7 +232,15 @@ def refresh_node_editor():
         with dpg.table_row(parent="tableLinks"):
             dpg.add_text("link:{}<->{}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
 
+    # also refresh nodes in the list box "comboNodes", save id to the net object
+    net.nodes_id = [node.get_node_id() for node in net.nodes]  # e.g. ['router1' 'router2']
+    dpg.configure_item("comboNodes",items = net.nodes_id+["all nodes"])
 
+    # construct node objects here #test
+    '''node_objects = {name: node_container() for name in net.nodes_id}
+    for name, obj in node_objects.items():
+        globals()[name] = obj
+    print("construct OK")'''
 
 def main():
     ## add item THEME here
@@ -282,6 +334,28 @@ def main():
     with dpg.window(label="logger",tag="winLog", pos=[400, 350],width=params.logger_width,height=params.logger_height,
                     no_close=True,no_move=True):
         net.log = logger.mvLogger(parent="winLog")
+        net.log.log_info("Program started.")
+
+    with dpg.window(label="Function Panel",tag="winFuncPanel", pos=[400, 0],width=params.func_width,
+                    height=params.func_height,no_close=True,no_move=True):
+        dpg.add_text("Please choose nodes...")
+        items = ("A", "B", "C", )
+        combo_id = dpg.add_combo(items, label="Nodes List", height_mode=dpg.mvComboHeight_Regular,tag="comboNodes")
+        dpg.add_color_edit((120, 100, 200, 255), label="color selector")
+        _help("Select color for LED control.")
+        with dpg.tab_bar(tag="tabFuncPanel"):
+            with dpg.tab(label="Temperature"):
+                dpg.add_button(label="get temp",tag="btnFuncPanelGetTemp",callback=get_temp_callback)
+                with dpg.collapsing_header(label="Nodes Temp", default_open=True):
+                    with dpg.table(header_row=True, row_background=False,
+                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                                   borders_outerV=False, delay_search=True, tag="tableFuncPanelTemps"):
+                        dpg.add_table_column(label="Node ID")
+                        dpg.add_table_column(label="temperature")
+            with dpg.tab(label="Color"):
+                pass
+            with dpg.tab(label="Cyclic"):
+                pass
 
     # put this windows at last, o.t.w。 "modal" doesn't work
     with dpg.window(label="Welcome",tag="winWelcome",autosize=True, pos=[220,180], modal=True, no_close=True):
