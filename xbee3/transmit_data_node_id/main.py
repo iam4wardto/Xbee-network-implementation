@@ -7,8 +7,8 @@ import time
 from sys import stdin, stdout
 
 def init_xbee():
-    xbee_settings = {"NI": "ROUTER1", "CE": 0, "ID": 0x1219, "PS": 1}
-    # NI: readable node id
+    xbee_settings = {"NI": "ROUTER2", "CE": 0, "ID": 0x1219, "PS": 1}
+    # NI: readable node id, change separately
     # CE: start network, 1 for coord
     # ID: 64bit-PAN-id of our network
     # PS: micropython code auto start

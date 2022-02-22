@@ -1,14 +1,22 @@
 import dearpygui.dearpygui as dpg
+from dearpygui_ext import logger
 import serial.tools.list_ports as stl
 import json
 import time
-import gui_callback
+from gui_callback import *
 from digi.xbee.devices import *
 from digi.xbee.models import *
-
+from digi.xbee.util import utils
+from net_cfg import *
 
 
 dpg.create_context()
+
+'''with dpg.font_registry():
+    # Download font here: https://fonts.google.com/specimen/Open+Sans
+    font = dpg.add_font("font/OpenSans-Regular.ttf", 15*2, tag="sans-font")
+dpg.bind_font("sans-font")
+dpg.set_global_font_scale(0.5)'''
 
 class serial_param:
     PORT=""
@@ -18,16 +26,21 @@ class serial_param:
 class params:
     def __init__(self):
         pass
+    # position
     main_width = 900
     main_height = 600
+    logger_width = 500
+    logger_height = 250
+    coord_pos = [20, 200] # coord pos in the node editor
 
+    # color
     rgb_red = [255, 0, 0]
     rgb_green = [0, 255, 0]
     rgb_white = [255, 255, 255]
 
-    coord = None
 
-net = params() # instantiate coord module
+#net = params() # instantiate coord module
+
 
 def btnOpenPort_callback(sender, app_data, user_data):
     try:
@@ -37,10 +50,34 @@ def btnOpenPort_callback(sender, app_data, user_data):
         net.coord.open()
         dpg.set_value("portOpenMsg", "Success, starting...")
         dpg.bind_item_theme("portOpenMsg", "themeGreen")
-        time.sleep(2)
+        time.sleep(1)
         dpg.hide_item("winWelcome")
+
+        # continue scanning...
+        net.xbee_network = net.coord.get_network()
+        # Configure the discovery options.
+        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE,)
+        net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5,time_bw_scans=5)
+        net.xbee_network.clear()
+        net.xbee_network.add_device_discovered_callback(callback_device_discovered)
+        net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
+        net.coord.add_data_received_callback(coord_data_received_callback)
+
+        net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
+        print("Discovering remote XBee devices...")
+        net.log.log_info("Discovering remote XBee devices...")
+
+        # configure loading windows
+        while net.xbee_network.is_discovery_running():
+            dpg.show_item("winLoadingIndicator")
+        net.nodes = net.xbee_network.get_devices()
+        net.connections = net.xbee_network.get_connections()
+        dpg.hide_item("winLoadingIndicator")
+        refresh_node_editor()
+
     except Exception as err:
         print(err)
+        net.log.log_error("Port open failed")
         dpg.set_value("portOpenMsg", "Failed, check again")
         dpg.bind_item_theme("portOpenMsg", "themeRed")
 
@@ -56,9 +93,11 @@ def max_node_view_callback(sender, app_data, user_data):
     if btn_label == "Maximize":
         dpg.set_item_label("btnMaxNodeView","Minimize")
         dpg.set_primary_window("winMain",True)
+        dpg.hide_item("winLog")
     else:
         dpg.set_item_label("btnMaxNodeView", "Maximize")
         dpg.set_primary_window("winMain", False)
+        dpg.show_item("winLog")
 
 def exit_callback():
     print("Exit called...")
@@ -69,6 +108,86 @@ def exit_callback():
         dpg.show_item("winExitConfirm")
     except:
         pass # not relevant here
+
+def node_pos_generate(coord_pos: [int,int],index: int):
+    '''
+    nodes are radially distributed in a hexagonal shape
+    :param coord_pos: position of coordinator node
+    :param index: node's order
+    :return: position of this node
+    '''
+    pos_diff=[[-100,0],[-60,-80],[60,-80],[100,0],[60,80],[-60,80]]
+    quotient = index // 6
+    mod = index % 6
+    scatter_size =2
+    return [coord_pos[0]+(quotient+1)*pos_diff[mod][0]*scatter_size,
+            coord_pos[1]+(quotient+1)*pos_diff[mod][1]*scatter_size]
+
+def put_node_into_list(node):
+    '''
+    used when refresh node info in the list view
+    :param node: xbee node object
+    :return: none
+    '''
+    dpg.add_text(node.get_node_id())
+    dpg.add_text(node.get_64bit_addr())
+    dpg.add_text(node.get_16bit_addr())
+
+def refresh_node_editor():
+    dpg.delete_item("nodeEditor",children_only=True)
+    with dpg.node(label="COORDINATOR", pos=params.coord_pos,parent="nodeEditor"):
+        # first add coord node, then add all the routers in the net
+        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
+            dpg.add_text("addr_64:\n{}".format(net.coord.get_64bit_addr()))
+            dpg.add_text("addr_16:{}".format(net.coord.get_16bit_addr()))
+            panid = utils.hex_to_string(net.coord.get_pan_id())
+            panid = panid.replace(" ", "").strip("0")  # delete space and zeros
+            dpg.add_text("PAN ID:{}".format(panid))
+
+        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join(['COORD', 'output'])):
+            dpg.add_text("Network Link")
+
+    # also refresh node list here
+    dpg.delete_item("tableNodes", children_only=True)
+    dpg.add_table_column(label="Node ID", parent="tableNodes")
+    dpg.add_table_column(label="addr_64", parent="tableNodes")
+    dpg.add_table_column(label="addr_16", parent="tableNodes")
+    with dpg.table_row(parent="tableNodes"):
+        put_node_into_list(net.coord)
+
+    for index, node in enumerate(net.nodes, start=2):
+        id = node.get_node_id()
+        with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index),parent="nodeEditor"):
+            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
+                dpg.add_text("addr_64:\n{}".format(node.get_64bit_addr()))
+                dpg.add_text("addr_16:{}".format(node.get_16bit_addr()))
+            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input, tag='-'.join([id, 'input'])):
+                # dpg.add_text("Network Link")
+                pass
+            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
+                # dpg.add_text("Network Link")
+                pass
+        with dpg.table_row(parent="tableNodes"):
+            put_node_into_list(node)
+
+    # add links found by deep discovery
+    dpg.delete_item("tableLinks", children_only=True)
+    dpg.add_table_column(label="test", parent="tableLinks")
+    for connect in net.connections:
+        # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing
+        if connect.node_a.get_node_id() == 'COORD':
+            text_a = 'output'
+            text_b = 'input'
+        else:
+            text_a = 'input'
+            text_b = 'output'
+        # draw links in the graph view
+        dpg.add_node_link('-'.join([connect.node_a.get_node_id(), text_a]),
+                          '-'.join([connect.node_b.get_node_id(), text_b]), parent="nodeEditor")
+        # add/refresh links to the list view
+        with dpg.table_row(parent="tableLinks"):
+            dpg.add_text("link:{}<->{}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
+
 
 
 def main():
@@ -119,7 +238,6 @@ def main():
             with dpg.menu(label="Tools"):
                 dpg.add_menu_item(label="Show Metrics", callback=lambda: dpg.show_tool(dpg.mvTool_Metrics))
                 dpg.add_menu_item(label="Show Documentation", callback=lambda: dpg.show_tool(dpg.mvTool_Doc))
-                dpg.add_menu_item(label="Show Debug", callback=lambda: dpg.show_tool(dpg.mvTool_Debug))
                 dpg.add_menu_item(label="Show Style Editor", callback=lambda: dpg.show_tool(dpg.mvTool_Style))
                 dpg.add_menu_item(label="Show Item Registry", callback=lambda: dpg.show_tool(dpg.mvTool_ItemRegistry))
 
@@ -128,38 +246,42 @@ def main():
                                   callback=lambda s, a: dpg.configure_app(wait_for_input=a))
                 dpg.add_menu_item(label="Toggle Fullscreen", callback=lambda: dpg.toggle_viewport_fullscreen())
 
-        with dpg.collapsing_header(label="Network Nodes View", default_open=True):
-            dpg.add_text("Link denotes parent-child.", bullet=True)
+        with dpg.collapsing_header(label="Nodes Graph View", default_open=True):
+            dpg.add_text("Link denotes network connection.", bullet=True)
             dpg.add_button(label="Maximize", tag="btnMaxNodeView", callback=max_node_view_callback)
             with dpg.node_editor(
                     callback=lambda sender, app_data: dpg.add_node_link(app_data[0], app_data[1], parent=sender),
-                    delink_callback=lambda sender, app_data: dpg.delete_item(app_data)):
-                with dpg.node(label="Node 1", pos=[10, 10]):
-                    with dpg.node_attribute():
-                        dpg.add_input_float(label="F1", width=150)
+                    delink_callback=lambda sender, app_data: dpg.delete_item(app_data),tag="nodeEditor"):
+                pass
+        with dpg.collapsing_header(label="Nodes List View", default_open=True):
+            with dpg.tree_node(label="Node Table",default_open=True):
+                with dpg.table(header_row=True, row_background=False,
+                               borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                               borders_outerV=False, delay_search=True,tag="tableNodes") as table_id:
 
-                    with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
-                        dpg.add_input_float(label="F2", width=150)
+                    dpg.add_table_column(label="Node ID")
+                    dpg.add_table_column(label="addr_64")
+                    dpg.add_table_column(label="addr_16")
 
-                with dpg.node(label="Node 2", pos=[300, 10]):
-                    with dpg.node_attribute() as na2:
-                        dpg.add_input_float(label="F3", width=200)
+                    for i in range(5): # dummy init table
+                        with dpg.table_row():
+                            for j in range(3):
+                                dpg.add_text(f"Row{i} Column{j}")
+            with dpg.tree_node(label="Network Links", default_open=False):
+                with dpg.table(header_row=False, row_background=False,
+                               borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                               borders_outerV=False, delay_search=True, tag="tableLinks") :
+                    pass
 
-                    with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output):
-                        dpg.add_input_float(label="F4", width=200)
-
-                with dpg.node(label="Node 3", pos=[25, 150]):
-                    with dpg.node_attribute():
-                        dpg.add_input_text(label="T5", width=200)
-                    with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
-                        dpg.add_simple_plot(label="Node Plot", default_value=(0.3, 0.9, 2.5, 8.9), width=200, height=80,
-                                            histogram=True)
 
 
     with dpg.window(label="Confirm  Exit", tag="winExitConfirm", pos=[220, 180], modal=True, show=False):
         dpg.add_button(label="Yes", tag="btnExitConfirmYes")
         dpg.add_button(label="Cancel", tag="btnExitConfirmNo")
 
+    with dpg.window(label="logger",tag="winLog", pos=[400, 350],width=params.logger_width,height=params.logger_height,
+                    no_close=True,no_move=True):
+        net.log = logger.mvLogger(parent="winLog")
 
     # put this windows at last, o.t.w。 "modal" doesn't work
     with dpg.window(label="Welcome",tag="winWelcome",autosize=True, pos=[220,180], modal=True, no_close=True):
@@ -176,6 +298,13 @@ def main():
                 dpg.add_text("", tag="portOpenMsg")
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
+
+    with dpg.window(label="",tag="winLoadingIndicator", pos=[400, 200], modal=True, show=False,no_close=True):
+        dpg.add_text("Network discovery in progress...")
+        with dpg.group(horizontal=True):
+            dpg.add_spacer(width=80)
+            dpg.add_loading_indicator()
+
 
     ## GUI ready
     #dpg.set_primary_window("main",True)
