@@ -87,8 +87,6 @@ def btnOpenPort_callback(sender, app_data, user_data):
         net.coord.open()
         dpg.set_value("portOpenMsg", "Success, starting...")
         dpg.bind_item_theme("portOpenMsg", "themeGreen")
-        time.sleep(1)
-        dpg.hide_item("winWelcome")
 
         # continue scanning...
         net.xbee_network = net.coord.get_network()
@@ -100,6 +98,9 @@ def btnOpenPort_callback(sender, app_data, user_data):
         net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
         net.coord.add_data_received_callback(coord_data_received_callback)
 
+        time.sleep(1)
+        dpg.hide_item("winWelcome")
+
         net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
         print("Discovering remote XBee devices...")
         net.log.log_info("Discovering remote XBee devices...")
@@ -110,7 +111,7 @@ def btnOpenPort_callback(sender, app_data, user_data):
         net.nodes = net.xbee_network.get_devices()
         net.connections = net.xbee_network.get_connections()
         dpg.hide_item("winLoadingIndicator")
-        refresh_node_editor()
+        refresh_node_info_and_add_to_main_windows()
         init_nodes_temp_table()
 
     except Exception as err:
@@ -173,7 +174,17 @@ def put_node_into_list(node):
     dpg.add_text(node.get_64bit_addr())
     dpg.add_text(node.get_16bit_addr())
 
-def refresh_node_editor():
+def add_column_tableNodes():
+    '''
+    add colune in the "tableNodes"
+    :return:
+    '''
+    dpg.add_table_column(default_sort=True,width=20 ,label="Node ID", parent="tableNodes")
+    dpg.add_table_column(width= 40,label="addr_64", parent="tableNodes")
+    dpg.add_table_column(label="addr_16", parent="tableNodes")
+    dpg.add_table_column(label="RSSI", parent="tableNodes")
+
+def refresh_node_info_and_add_to_main_windows():
     dpg.delete_item("nodeEditor",children_only=True)
     with dpg.node(label="COORDINATOR", pos=params.coord_pos,parent="nodeEditor"):
         # first add coord node, then add all the routers in the net
@@ -189,13 +200,11 @@ def refresh_node_editor():
 
     # also refresh node list here
     dpg.delete_item("tableNodes", children_only=True)
-    dpg.add_table_column(label="Node ID", parent="tableNodes")
-    dpg.add_table_column(label="addr_64", parent="tableNodes")
-    dpg.add_table_column(label="addr_16", parent="tableNodes")
+    add_column_tableNodes()
     with dpg.table_row(parent="tableNodes"):
         put_node_into_list(net.coord)
 
-    net.nodes_obj = None # clear, if this is next refresh
+    net.nodes_obj.clear()  # clear list of our container object for each node, ready for the next refresh
     for index, node in enumerate(net.nodes, start=2):
         id = node.get_node_id()
         with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index),parent="nodeEditor"):
@@ -208,15 +217,22 @@ def refresh_node_editor():
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
                 # dpg.add_text("Network Link")
                 pass
+        # inherit RemoteXbeeDevice class, and construct our node_container object *important!
+        tmp_obj = node_container(node)
+        # get rssi value of each node using AT command "DB"
+        tmp_obj.rssi = -utils.bytes_to_int(node.get_parameter("DB"))
+        net.nodes_obj.append(tmp_obj)
         # put each node info into list view
         with dpg.table_row(parent="tableNodes"):
             put_node_into_list(node)
-        # inherit RemoteXbeeDevice class, and construct our node_container object *important!
-        net.nodes_obj.append(node_container(node))
+            dpg.add_text("{} dbm".format(tmp_obj.rssi))
+
 
     # add links found by deep discovery
     dpg.delete_item("tableLinks", children_only=True)
-    dpg.add_table_column(label="test", parent="tableLinks")
+    dpg.add_table_column(label="links", parent="tableLinks")
+    dpg.add_table_column(label="LQI index", parent="tableLinks")
+
     for connect in net.connections:
         # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing
         if connect.node_a.get_node_id() == 'COORD':
@@ -230,11 +246,13 @@ def refresh_node_editor():
                           '-'.join([connect.node_b.get_node_id(), text_b]), parent="nodeEditor")
         # add/refresh links to the list view
         with dpg.table_row(parent="tableLinks"):
-            dpg.add_text("link:{}<->{}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
+            dpg.add_text("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
+            dpg.add_text("{}/{}".format(connect.lq_a2b.lq, connect.lq_b2a.lq))
+
 
     # also refresh nodes in the list box "comboNodes", save id to the net object
     net.nodes_id = [node.get_node_id() for node in net.nodes]  # e.g. ['router1' 'router2']
-    dpg.configure_item("comboNodes",items = net.nodes_id+["all nodes"])
+    dpg.configure_item("comboNodes",items = net.nodes_id+["All Nodes"])
 
     # construct node objects here #test
     '''node_objects = {name: node_container() for name in net.nodes_id}
@@ -319,8 +337,8 @@ def main():
                         with dpg.table_row():
                             for j in range(3):
                                 dpg.add_text(f"Row{i} Column{j}")
-            with dpg.tree_node(label="Network Links", default_open=False):
-                with dpg.table(header_row=False, row_background=False,
+            with dpg.tree_node(label="Network Links", default_open=True):
+                with dpg.table(header_row=True, row_background=False,
                                borders_innerH=True, borders_outerH=True, borders_innerV=True,
                                borders_outerV=False, delay_search=True, tag="tableLinks") :
                     pass
@@ -352,7 +370,7 @@ def main():
                                    borders_outerV=False, delay_search=True, tag="tableFuncPanelTemps"):
                         dpg.add_table_column(label="Node ID")
                         dpg.add_table_column(label="temperature")
-            with dpg.tab(label="Color"):
+            with dpg.tab(label="LED Color"):
                 pass
             with dpg.tab(label="Cyclic"):
                 pass

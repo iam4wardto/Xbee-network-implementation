@@ -25,8 +25,10 @@ def refresh_nodes_temp_table():
 
 # Callback for discovered devices.
 def callback_device_discovered(remote):
-    print("Device discovered: %s" % remote.get_parameter("NI").decode())
     net.log.log_info("Device discovered: %s" % remote.get_parameter("NI").decode())
+    #print("Device discovered: {}, RSSI: {}".format(remote.get_parameter("NI").decode(),
+    #                                               utils.bytes_to_int(remote.get_parameter("DB"))   ))
+    print("Device discovered: {}".format(remote.get_parameter("NI").decode()))
 
 
 # Callback for discovery finished. # TODO print this to gui -ing
