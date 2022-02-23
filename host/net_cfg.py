@@ -22,6 +22,7 @@ class node_container:
     # save get_...() response of each node
     node_xbee = None
     temperature = "n/a" # temperature, use string here
+    rssi = float('-inf')  # rssi value foe each node
     led_color = []
 
 global net
