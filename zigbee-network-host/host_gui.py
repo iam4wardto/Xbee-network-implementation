@@ -3,22 +3,24 @@ from dearpygui_ext import logger
 import serial.tools.list_ports as stl
 import json
 import time
+import pyautogui
 from gui_callback import *
 from digi.xbee.devices import *
 from digi.xbee.models import *
 from digi.xbee.util import utils
-from typing import Union, Sequence
+from typing import Union, Sequence, List
 
 from gui_callback import *
 from net_cfg import *
 
+try:
+    # deal with dpi issue on Windows
+    import ctypes
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
+finally:
+    pass
 
 dpg.create_context()
-
-with dpg.font_registry():
-    font = dpg.add_font("font/OpenSans-Regular.ttf", 15*2, tag="sans-font")
-#dpg.bind_font("sans-font")
-#dpg.set_global_font_scale(0.5)
 
 
 class serial_param:
@@ -30,15 +32,30 @@ class serial_param:
 class params:
     def __init__(self):
         pass
+    hidpi = False
+    if pyautogui.size()[0]>3000:
+        hidpi = True
+    if hidpi:
+        scale = 3
+    else:
+        scale = 1
 
     # size of three windows
-    main_width = 900
-    main_height = 600
-    logger_width = 500
-    logger_height = 250
-    func_width = 500
-    func_height = 350
-    coord_pos = [20, 200]  # int coord pos in the node editor
+    main_width = 900 * scale
+    main_height = 600 * scale
+    logger_width = 500 * scale
+    logger_height = 250 * scale
+    func_width = 500 * scale
+    func_height = 350 * scale
+    coord_pos = [20* scale, 200* scale]  # int coord pos in the node editor
+
+    # windows position
+    winExitConfirm_pos = [220*scale, 180*scale]
+    winLog_pos = [400*scale, 350*scale]
+    winFuncPanel_pos = [400*scale, 0]
+    winWelcome_pos = [220* scale, 180* scale]
+    winLoadingIndicator_pos = [400*scale, 200*scale]
+
 
     # colors
     rgb_red = [255, 0, 0]
@@ -164,14 +181,16 @@ def exit_callback():
         pass  # not relevant here
 
 
-def node_pos_generate(coord_pos: Union[int, int], index: int):
+def node_pos_generate(coord_pos: List[int], index: int):
     '''
     nodes are radially distributed in a hexagonal shape
     :param coord_pos: position of coordinator node
     :param index: node's order
     :return: position of this node
     '''
-    pos_diff = [[-100, 0], [-60, -80], [60, -80], [100, 0], [60, 80], [-60, 80]]
+    pos_diff = [[-100* params.scale, 0], [-60* params.scale, -80* params.scale],
+                [60* params.scale, -80* params.scale], [100* params.scale, 0],
+                [60* params.scale, 80* params.scale], [-60* params.scale, 80* params.scale]]
     quotient = index // 6
     mod = index % 6
     scatter_size = 2
@@ -290,7 +309,7 @@ def main():
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_white)
 
-    with dpg.window(label="Main", width=400, height=600, tag="winMain",
+    with dpg.window(label="Main", width=400* params.scale, height=600* params.scale, tag="winMain",
                     no_title_bar=True, no_close=True, no_move=True):
         # main windows pos in default upper-left corner
         with dpg.menu_bar():
@@ -312,7 +331,7 @@ def main():
                     dpg.add_menu_item(label="Option 2", check=True, callback=log_callback)
                     dpg.add_menu_item(label="Option 3", check=True, default_value=True, callback=log_callback)
 
-                    with dpg.child_window(height=60, autosize_x=True, delay_search=True):
+                    with dpg.child_window(height=60* params.scale, autosize_x=True, delay_search=True):
                         for i in range(10):
                             dpg.add_text(f"Scolling Text{i}")
 
@@ -358,17 +377,17 @@ def main():
                                borders_outerV=False, delay_search=True, tag="tableLinks"):
                     pass
 
-    with dpg.window(label="Confirm  Exit", tag="winExitConfirm", pos=[220, 180], modal=True, show=False):
+    with dpg.window(label="Confirm  Exit", tag="winExitConfirm", pos=params.winExitConfirm_pos, modal=True, show=False):
         dpg.add_button(label="Yes", tag="btnExitConfirmYes")
         dpg.add_button(label="Cancel", tag="btnExitConfirmNo")
 
-    with dpg.window(label="logger", tag="winLog", pos=[400, 350], width=params.logger_width,
+    with dpg.window(label="logger", tag="winLog", pos=params.winLog_pos, width=params.logger_width,
                     height=params.logger_height,
                     no_close=True, no_move=True):
         net.log = logger.mvLogger(parent="winLog")
         net.log.log_info("Program started.")
 
-    with dpg.window(label="Function Panel", tag="winFuncPanel", pos=[400, 0], width=params.func_width,
+    with dpg.window(label="Function Panel", tag="winFuncPanel", pos=params.winFuncPanel_pos, width=params.func_width,
                     height=params.func_height, no_close=True, no_move=True):
         dpg.add_text("Please choose nodes...")
         items = ("A", "B", "C",)
@@ -390,7 +409,7 @@ def main():
                 pass
 
     # put this windows at last, o.t.w。 "modal" doesn't work
-    with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=[220, 180], modal=True, no_close=True):
+    with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=True, no_close=True):
         dpg.add_text("Please select COM port to start coordinator:")
         com_list = stl.comports()
         com_list_2 = []  # test
@@ -408,15 +427,21 @@ def main():
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
 
-    with dpg.window(label="", tag="winLoadingIndicator", pos=[400, 200], modal=True, show=False, no_close=True):
+    with dpg.window(label="", tag="winLoadingIndicator", pos=params.winLoadingIndicator_pos, modal=True, show=False, no_close=True):
         dpg.add_text("Network discovery in progress...")
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=80)
+            dpg.add_spacer(width=80*params.scale/2)
             dpg.add_loading_indicator()
+
+    # set font
+    with dpg.font_registry():
+        font = dpg.add_font("font/OpenSans-Regular.ttf", 15*params.scale, tag="sans")
+    dpg.bind_font("sans")
+
 
     ## GUI ready
     # dpg.set_primary_window("main",True)
-    dpg.create_viewport(title='Zigbee Network Host Application', small_icon='icon.ico', large_icon='icon.ico',
+    dpg.create_viewport(title='Zigbee Network Host Application', small_icon='./figure/icon.ico', large_icon='./figure/icon.ico',
                         width=params.main_width, height=params.main_height, x_pos=500, y_pos=200, resizable=False)
     dpg.setup_dearpygui()
     dpg.set_exit_callback(exit_callback)
