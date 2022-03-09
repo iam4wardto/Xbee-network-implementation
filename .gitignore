@@ -12,3 +12,12 @@ host/.idea/misc.xml
 host/.idea/modules.xml
 host/.idea/workspace.xml
 zigbee-network-host/.idea/vcs.xml
+zigbee-network-host/__pycache__/gui_callback.cpython-38.pyc
+*.xml
+*.pyc
+*.pyc
+*.pyc
+*.ttf
+*.ttf
+*.ttf
+zigbee-network-host/figure/somefile.jpg

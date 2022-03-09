@@ -4,11 +4,10 @@ from dearpygui_ext import logger
 from digi.xbee.devices import *
 from digi.xbee.models import *
 from digi.xbee.util import utils
+from typing import Union, Sequence, List
 from net_cfg import *
+from helper_funcs import *
 
-
-
-## callback for xbee module
 
 def refresh_nodes_temp_table():
     '''
@@ -22,6 +21,25 @@ def refresh_nodes_temp_table():
         with dpg.table_row(parent="tableFuncPanelTemps"):
             dpg.add_text(obj.node_xbee.get_node_id())
             dpg.add_text(obj.temperature)
+
+
+def select_node_callback(): # there's no node clicked callback...
+    node_selected = dpg.get_selected_nodes("nodeEditor")
+    if bool(node_selected)==True:
+        dpg.delete_item("tableNodeInfoAll", children_only=True)
+        add_column_tableNodeInfoAll()
+        if dpg.get_item_label(node_selected[0]) == net.coord.get_node_id():
+            node_tmp = net.coord
+        else:
+            for node in net.nodes:
+                if dpg.get_item_label(node_selected[0]) == node.get_node_id():
+                    node_tmp = node
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("net role")
+            dpg.add_text(node.get_role().description)
+
+    dpg.clear_selected_nodes("nodeEditor")
+
 
 # Callback for discovered devices.
 def callback_device_discovered(remote):
@@ -39,6 +57,52 @@ def callback_discovery_finished(status):
     else:
         print("There was an error discovering devices: %s" % status.description)
 
+
+def btnOpenPort_callback(sender, app_data, user_data):
+    try:
+        dpg.set_value("portOpenMsg", "Please wait...")
+        dpg.bind_item_theme("portOpenMsg", "themeWhite")
+        net.coord = ZigBeeDevice(serial_param.PORT, serial_param.BAUD_RATE)
+        if not net.coord.is_open(): # ready for refresh later
+            net.coord.open()
+        dpg.set_value("portOpenMsg", "Success, starting...")
+        dpg.bind_item_theme("portOpenMsg", "themeGreen")
+
+        # continue scanning...
+        net.xbee_network = net.coord.get_network()
+        # Configure the discovery options.
+        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE, )
+        net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5, time_bw_scans=5)
+        net.xbee_network.clear()
+        net.xbee_network.add_device_discovered_callback(callback_device_discovered)
+        net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
+        net.xbee_network.add_network_modified_callback(cb_network_modified)
+        net.coord.add_data_received_callback(coord_data_received_callback)
+
+
+        time.sleep(1)
+        dpg.hide_item("winWelcome")
+
+        net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
+        print("Discovering remote XBee devices...")
+        net.log.log_info("Discovering remote XBee devices...")
+
+        # configure loading windows
+        while net.xbee_network.is_discovery_running():
+            dpg.show_item("winLoadingIndicator")
+        net.nodes = net.xbee_network.get_devices()
+        net.connections = net.xbee_network.get_connections()
+        dpg.hide_item("winLoadingIndicator")
+        refresh_node_info_and_add_to_main_windows()
+        init_nodes_temp_table()
+
+    except Exception as err:
+        print(err)
+        net.log.log_error("Port open failed")
+        dpg.set_value("portOpenMsg", "Failed, check again")
+        dpg.bind_item_theme("portOpenMsg", "themeRed")
+
+
 # Callback for coord when receive data
 def coord_data_received_callback(xbee_message):
     addr_64 = xbee_message.remote_device.get_64bit_addr()
@@ -51,3 +115,6 @@ def coord_data_received_callback(xbee_message):
             obj.temperature = str(data.get("response")[0])
     # TODO use switch to select which function response this is
     refresh_nodes_temp_table()
+
+
+

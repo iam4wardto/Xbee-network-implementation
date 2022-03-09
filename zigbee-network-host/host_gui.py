@@ -1,17 +1,13 @@
-import dearpygui.dearpygui as dpg
-from dearpygui_ext import logger
 import serial.tools.list_ports as stl
 import json
 import time
-import pyautogui
-from gui_callback import *
+
 from digi.xbee.devices import *
 from digi.xbee.models import *
 from digi.xbee.util import utils
-from typing import Union, Sequence, List
+from digi.xbee.filesystem import FileSystemException,update_remote_filesystem_image
 
 from gui_callback import *
-from net_cfg import *
 
 try:
     # deal with dpi issue on Windows
@@ -23,47 +19,28 @@ finally:
 dpg.create_context()
 
 
-class serial_param:
-    PORT = ""
-    BAUD_RATE = 115200
+def add_theme_to_gui():
+    with dpg.theme(tag="themeRed"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_red)
 
+    with dpg.theme(tag="themeGreen"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_green)
 
-# adjust all gui params here...
-class params:
-    def __init__(self):
-        pass
-    hidpi = False
-    if pyautogui.size()[0]>3000:
-        hidpi = True
-    if hidpi:
-        scale = 3
-    else:
-        scale = 1
+    with dpg.theme(tag="themeWhite"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_white)
 
-    # size of three windows
-    main_width = 900 * scale
-    main_height = 600 * scale
-    logger_width = 500 * scale
-    logger_height = 250 * scale
-    func_width = 500 * scale
-    func_height = 350 * scale
-    coord_pos = [20* scale, 200* scale]  # int coord pos in the node editor
+    with dpg.theme(tag="themeBlue"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_blue)
 
-    # windows position
-    winExitConfirm_pos = [220*scale, 180*scale]
-    winLog_pos = [400*scale, 350*scale]
-    winFuncPanel_pos = [400*scale, 0]
-    winWelcome_pos = [220* scale, 180* scale]
-    winLoadingIndicator_pos = [400*scale, 200*scale]
+    with dpg.theme() as global_theme:
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,9)
+    dpg.bind_theme(global_theme)
 
-
-    # colors
-    rgb_red = [255, 0, 0]
-    rgb_green = [0, 255, 0]
-    rgb_white = [255, 255, 255]
-
-
-# net = params() # instantiate coord module
 
 def _help(message):  # to add help tooltip for the last item
     last_item = dpg.last_item()
@@ -73,17 +50,6 @@ def _help(message):  # to add help tooltip for the last item
     t = dpg.add_text("(?)", color=[0, 255, 0])
     with dpg.tooltip(t):
         dpg.add_text(message)
-
-
-def init_nodes_temp_table():
-    '''
-    to int, put n/a in the temperature list in function panel
-    :return:
-    '''
-    for node in net.nodes:
-        with dpg.table_row(parent="tableFuncPanelTemps"):
-            dpg.add_text(node.get_node_id())
-            dpg.add_text("n/a")
 
 
 def get_temp_callback():
@@ -105,46 +71,16 @@ def get_temp_callback():
             break
 
 
-def btnOpenPort_callback(sender, app_data, user_data):
-    try:
-        dpg.set_value("portOpenMsg", "Please wait...")
-        dpg.bind_item_theme("portOpenMsg", "themeWhite")
-        net.coord = ZigBeeDevice(serial_param.PORT, serial_param.BAUD_RATE)
-        net.coord.open()
-        dpg.set_value("portOpenMsg", "Success, starting...")
-        dpg.bind_item_theme("portOpenMsg", "themeGreen")
+def cb_network_modified(event_type, reason, node):
+    print("  >>>> Network event:")
+    print("         Type: %s (%d)" % (event_type.description, event_type.code))
+    print("         Reason: %s (%d)" % (reason.description, reason.code))
 
-        # continue scanning...
-        net.xbee_network = net.coord.get_network()
-        # Configure the discovery options.
-        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE, )
-        net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5, time_bw_scans=5)
-        net.xbee_network.clear()
-        net.xbee_network.add_device_discovered_callback(callback_device_discovered)
-        net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
-        net.coord.add_data_received_callback(coord_data_received_callback)
+    if not node:
+      return
 
-        time.sleep(1)
-        dpg.hide_item("winWelcome")
-
-        net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
-        print("Discovering remote XBee devices...")
-        net.log.log_info("Discovering remote XBee devices...")
-
-        # configure loading windows
-        while net.xbee_network.is_discovery_running():
-            dpg.show_item("winLoadingIndicator")
-        net.nodes = net.xbee_network.get_devices()
-        net.connections = net.xbee_network.get_connections()
-        dpg.hide_item("winLoadingIndicator")
-        refresh_node_info_and_add_to_main_windows()
-        init_nodes_temp_table()
-
-    except Exception as err:
-        print(err)
-        net.log.log_error("Port open failed")
-        dpg.set_value("portOpenMsg", "Failed, check again")
-        dpg.bind_item_theme("portOpenMsg", "themeRed")
+    print("         Node:")
+    print("            %s" % node)
 
 
 def com_radio_button_callback(sender, app_data):
@@ -175,141 +111,160 @@ def exit_callback():
     try:
         if net.coord is not None and net.coord.is_open():
             net.coord.close()
-            print("closed")
+            print("COORD closed")
         dpg.show_item("winExitConfirm")
     except:
         pass  # not relevant here
 
 
-def node_pos_generate(coord_pos: List[int], index: int):
-    '''
-    nodes are radially distributed in a hexagonal shape
-    :param coord_pos: position of coordinator node
-    :param index: node's order
-    :return: position of this node
-    '''
-    pos_diff = [[-100* params.scale, 0], [-60* params.scale, -80* params.scale],
-                [60* params.scale, -80* params.scale], [100* params.scale, 0],
-                [60* params.scale, 80* params.scale], [-60* params.scale, 80* params.scale]]
-    quotient = index // 6
-    mod = index % 6
-    scatter_size = 2
-    return [coord_pos[0] + (quotient + 1) * pos_diff[mod][0] * scatter_size,
-            coord_pos[1] + (quotient + 1) * pos_diff[mod][1] * scatter_size]
+def menu_show_metric_callback():
+    last_item = dpg.show_tool(dpg.mvTool_Metrics)
+
+def btn_update_info_cancel_callback():
+    dpg.hide_item("winUpdateDialog")
+
+def ota_update_progress_callback(info: str,progress: int):
+    dpg.configure_item("txtOTAUpdateStatus", default_value=info+": "+str(progress)+"%")
 
 
-def put_node_into_list(node):
+def btn_update_info_proceed_callback():
+    node_to_update_id = dpg.get_value("comboNodesCopy")
+    ota_file_path = dpg.get_item_user_data("btnUpdateInfoProceed")
+    try:
+        node_to_update = net.xbee_network.discover_device(node_to_update_id)
+        update_remote_filesystem_image(node_to_update, ota_filesystem_file=ota_file_path,
+                                       progress_callback=ota_update_progress_callback)
+        dpg.configure_item("txtOTAUpdateStatus", default_value="Device resetting...")
+        node_to_update.reset()
+        dpg.configure_item("txtOTAUpdateStatus", default_value="Update successful!")
+    except Exception as err:
+        net.log.log_error(err)
+        dpg.configure_item("txtOTAUpdateStatus", default_value=str(err)[:40])
+
+
+def comboNodesCopy_callback():
+    if dpg.get_value("txtSelectedImage") != "Please open file selector.":
+        if dpg.does_item_exist("tipBtnUpdateInfoProceed"):
+            dpg.delete_item("tipBtnUpdateInfoProceed")
+        dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
+
+def btnUpdateInfoOpen_callback():
+    dpg.configure_item("winUpdateDialog", modal=False)
+    dpg.show_item("winUpdateDialog")
+    dpg.show_item("fileSel")
+    dpg.focus_item("fileSel")
+
+
+def _ota_process(sender, app_data):
     '''
-    used when refresh node info in the list view
-    :param node: xbee node object
+    internal use for ota update menu
+    :param sender:
+    :param app_data: selected file address
     :return: none
     '''
-    dpg.add_text(node.get_node_id())
-    dpg.add_text(node.get_64bit_addr())
-    dpg.add_text(node.get_16bit_addr())
+    #print("Sender: ", sender)
+    #print(app_data)
+    dpg.configure_item("txtSelectedImage",default_value=app_data['file_name'])
+    if dpg.get_value("comboNodesCopy") != 'None':
+        if dpg.does_item_exist("tipBtnUpdateInfoProceed"):
+            dpg.delete_item("tipBtnUpdateInfoProceed")
+        dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
+    # very flexible to pass user data
+    dpg.set_item_user_data("btnUpdateInfoProceed",app_data['file_path_name'])
 
-
-def add_column_tableNodes():
+def centering_windows(modal_id,viewport_width,viewport_height, height_offset):
     '''
-    add colune in the "tableNodes"
-    :return:
+    help centering the windows/message box
+    :param modal_id: windows tag
+    :param viewport_width: viewport width got at run time when windows is created
+    :param viewport_height: viewport height
+    :return: None
     '''
-    dpg.add_table_column(default_sort=True, width=20, label="Node ID", parent="tableNodes")
-    dpg.add_table_column(width=40, label="addr_64", parent="tableNodes")
-    dpg.add_table_column(label="addr_16", parent="tableNodes")
-    dpg.add_table_column(label="RSSI", parent="tableNodes")
+    # guarantee these commands happen in another frame
+    dpg.split_frame()
+    width = dpg.get_item_width(modal_id)
+    height = dpg.get_item_height(modal_id)
+    dpg.set_item_pos(modal_id,
+                     [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2 - height_offset])
 
 
-def refresh_node_info_and_add_to_main_windows():
-    dpg.delete_item("nodeEditor", children_only=True)
-    with dpg.node(label="COORDINATOR", pos=params.coord_pos, parent="nodeEditor"):
-        # first add coord node, then add all the routers in the net
-        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
-            dpg.add_text("addr_64:\n{}".format(net.coord.get_64bit_addr()))
-            dpg.add_text("addr_16:{}".format(net.coord.get_16bit_addr()))
-            panid = utils.hex_to_string(net.coord.get_pan_id())
-            panid = panid.replace(" ", "").strip("0")  # delete space and zeros
-            dpg.add_text("PAN ID:{}".format(panid))
+def menu_ota_callback():
+    if not dpg.does_item_exist("fileSel"):
+        with dpg.file_dialog(label="Please select update image for Zigbee module",
+                             show=False, directory_selector=False, tag="fileSel",
+                             callback=_ota_process, file_count=0, width=500 * params.scale,
+                             height=350 * params.scale, modal=True):
+            dpg.add_file_extension(".ota")
+            dpg.add_file_extension(".py")
+    if not dpg.does_item_exist("winUpdateDialog"):
+        # guarantee these commands happen in the same frame
+        with dpg.mutex():
+            viewport_width = dpg.get_viewport_client_width()
+            viewport_height = dpg.get_viewport_client_height()
+            with dpg.window(label="Zigbee OTA Update Dialog", tag="winUpdateDialog", modal=True,
+                            show=True, autosize=True) as modal_id:
+                with dpg.group(horizontal=True):
+                    dpg.add_loading_indicator(circle_count=4)
+                    with dpg.group():
+                        with dpg.group(horizontal=True):
+                            dpg.add_text("Please select node:   ")
+                            dpg.add_combo(dpg.get_item_configuration("comboNodes")['items'], label="",
+                                          height_mode=dpg.mvComboHeight_Regular,tag="comboNodesCopy",
+                                          default_value='None',callback=comboNodesCopy_callback)
 
-        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join(['COORD', 'output'])):
-            dpg.add_text("Network Link")
+                        with dpg.group(horizontal=True):
+                            dpg.add_text("Selected OTA image:")
+                            dpg.add_input_text(default_value='Please open file selector.',readonly=True,tag="txtSelectedImage")
+                            dpg.add_button(label="open", tag="btnUpdateInfoOpen",callback=btnUpdateInfoOpen_callback)
+                            dpg.bind_item_theme("btnUpdateInfoOpen", "themeBlue")
+                        with dpg.group(horizontal=True):
+                            dpg.add_text("Update status:           ")
+                            dpg.add_input_text(default_value='', readonly=True, tag="txtOTAUpdateStatus")
+                        with dpg.group(horizontal=True):
+                            dpg.add_button(label="Proceed",tag="btnUpdateInfoProceed")
+                            dpg.bind_item_theme("btnUpdateInfoProceed", "themeBlue")
+                            dpg.add_spacer(width=25*params.scale)
+                            dpg.add_button(label="Cancel",tag="btnUpdateInfoCancel",callback=btn_update_info_cancel_callback)
+                            dpg.bind_item_theme("btnUpdateInfoCancel", "themeBlue")
 
-    # also refresh node list here
-    dpg.delete_item("tableNodes", children_only=True)
-    add_column_tableNodes()
-    with dpg.table_row(parent="tableNodes"):
-        put_node_into_list(net.coord)
+        centering_windows(modal_id, viewport_width, viewport_height,40*params.scale)
 
-    net.nodes_obj.clear()  # clear list of our container object for each node, ready for the next refresh
-    for index, node in enumerate(net.nodes, start=2):
-        id = node.get_node_id()
-        with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index), parent="nodeEditor"):
-            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
-                dpg.add_text("addr_64:\n{}".format(node.get_64bit_addr()))
-                dpg.add_text("addr_16:{}".format(node.get_16bit_addr()))
-            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input, tag='-'.join([id, 'input'])):
-                # dpg.add_text("Network Link")
-                pass
-            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
-                # dpg.add_text("Network Link")
-                pass
-        # inherit RemoteXbeeDevice class, and construct our node_container object *important!
-        tmp_obj = node_container(node)
-        # get rssi value of each node using AT command "DB"
-        tmp_obj.rssi = -utils.bytes_to_int(node.get_parameter("DB"))
-        net.nodes_obj.append(tmp_obj)
-        # put each node info into list view
-        with dpg.table_row(parent="tableNodes"):
-            put_node_into_list(node)
-            dpg.add_text("{} dbm".format(tmp_obj.rssi))
+    # re-show windows, refresh info
+    dpg.show_item("winUpdateDialog")
+    dpg.configure_item("comboNodesCopy", items=dpg.get_item_configuration("comboNodes")['items'])
+    dpg.configure_item("txtOTAUpdateStatus", default_value='')
 
-    # add links found by deep discovery
-    dpg.delete_item("tableLinks", children_only=True)
-    dpg.add_table_column(label="links", parent="tableLinks")
-    dpg.add_table_column(label="LQI index", parent="tableLinks")
-
-    for connect in net.connections:
-        # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing
-        if connect.node_a.get_node_id() == 'COORD':
-            text_a = 'output'
-            text_b = 'input'
-        else:
-            text_a = 'input'
-            text_b = 'output'
-        # draw links in the graph view
-        dpg.add_node_link('-'.join([connect.node_a.get_node_id(), text_a]),
-                          '-'.join([connect.node_b.get_node_id(), text_b]), parent="nodeEditor")
-        # add/refresh links to the list view
-        with dpg.table_row(parent="tableLinks"):
-            dpg.add_text("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
-            dpg.add_text("{}/{}".format(connect.lq_a2b.lq, connect.lq_b2a.lq))
-
-    # also refresh nodes in the list box "comboNodes", save id to the net object
-    net.nodes_id = [node.get_node_id() for node in net.nodes]  # e.g. ['router1' 'router2']
-    dpg.configure_item("comboNodes", items=net.nodes_id + ["All Nodes"])
-
-    # construct node objects here #test
-    '''node_objects = {name: node_container() for name in net.nodes_id}
-    for name, obj in node_objects.items():
-        globals()[name] = obj
-    print("construct OK")'''
+    if dpg.get_value("comboNodesCopy") == 'None' or dpg.get_value("txtSelectedImage") == "Please open file selector.": # user didn't finish selection
+        dpg.configure_item("btnUpdateInfoProceed",callback=None)
+        if not dpg.does_item_exist("tipBtnUpdateInfoProceed"):
+            with dpg.tooltip("btnUpdateInfoProceed",tag="tipBtnUpdateInfoProceed"):
+                dpg.add_text("Please finish selection first!")
+    else:
+        dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
+        if dpg.does_item_exist("tipBtnUpdateInfoProceed"):
+            dpg.delete_item("tipBtnUpdateInfoProceed")
 
 
 def main():
-    ## add item THEME here
-    with dpg.theme(tag="themeRed"):
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_red)
+    ## create logger for Xbee Class
+    dev_logger = logging.getLogger("digi.xbee.devices")
+    rx_logger = logging.getLogger("digi.xbee.reader")
+    tx_logger = logging.getLogger("digi.xbee.sender")
 
-    with dpg.theme(tag="themeGreen"):
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_green)
+    # Get a handler and configure a formatter for it.
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - ''%(message)s')
+    handler.setFormatter(formatter)
+    dev_logger.addHandler(handler)
 
-    with dpg.theme(tag="themeWhite"):
-        with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_white)
+    add_theme_to_gui()
 
-    with dpg.window(label="Main", width=400* params.scale, height=600* params.scale, tag="winMain",
+    with dpg.window(label="", tag="winUpdateIndicator", pos=params.winLoadingIndicator_pos, modal=True, show=False):
+        with dpg.group(horizontal=True):
+            dpg.add_loading_indicator()
+            dpg.add_text("Module update in progress...")
+
+    with dpg.window(label="Main", width=400 * params.scale, height=600 * params.scale, tag="winMain",
                     no_title_bar=True, no_close=True, no_move=True):
         # main windows pos in default upper-left corner
         with dpg.menu_bar():
@@ -331,7 +286,7 @@ def main():
                     dpg.add_menu_item(label="Option 2", check=True, callback=log_callback)
                     dpg.add_menu_item(label="Option 3", check=True, default_value=True, callback=log_callback)
 
-                    with dpg.child_window(height=60* params.scale, autosize_x=True, delay_search=True):
+                    with dpg.child_window(height=60 * params.scale, autosize_x=True, delay_search=True):
                         for i in range(10):
                             dpg.add_text(f"Scolling Text{i}")
 
@@ -340,8 +295,8 @@ def main():
                     dpg.add_combo(("Yes", "No", "Maybe"), label="Combo")
 
             with dpg.menu(label="Tools"):
-                dpg.add_menu_item(label="Show Metrics", callback=lambda: dpg.show_tool(dpg.mvTool_Metrics))
-                dpg.add_menu_item(label="Show Documentation", callback=lambda: dpg.show_tool(dpg.mvTool_Doc))
+                dpg.add_menu_item(label="Show GUI Metrics", callback=menu_show_metric_callback)
+                dpg.add_menu_item(label="Zigbee OTA Update", callback=menu_ota_callback)
                 dpg.add_menu_item(label="Show Style Editor", callback=lambda: dpg.show_tool(dpg.mvTool_Style))
                 dpg.add_menu_item(label="Show Item Registry", callback=lambda: dpg.show_tool(dpg.mvTool_ItemRegistry))
 
@@ -381,7 +336,7 @@ def main():
         dpg.add_button(label="Yes", tag="btnExitConfirmYes")
         dpg.add_button(label="Cancel", tag="btnExitConfirmNo")
 
-    with dpg.window(label="logger", tag="winLog", pos=params.winLog_pos, width=params.logger_width,
+    with dpg.window(label="Logger", tag="winLog", pos=params.winLog_pos, width=params.logger_width,
                     height=params.logger_height,
                     no_close=True, no_move=True):
         net.log = logger.mvLogger(parent="winLog")
@@ -395,6 +350,12 @@ def main():
         dpg.add_color_edit((120, 100, 200, 255), label="color selector")
         _help("Select color for LED control.")
         with dpg.tab_bar(tag="tabFuncPanel"):
+            with dpg.tab(label="Node Info",tag="tabNodeInfo"):
+                with dpg.table(header_row=True, row_background=False,
+                               borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                               borders_outerV=False, resizable=True, tag="tableNodeInfoAll"):
+                    add_column_tableNodeInfoAll()
+
             with dpg.tab(label="Temperature"):
                 dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
                 with dpg.collapsing_header(label="Nodes Temp", default_open=True):
@@ -408,11 +369,11 @@ def main():
             with dpg.tab(label="Cyclic"):
                 pass
 
-    # put this windows at last, o.t.w。 "modal" doesn't work
-    with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=True, no_close=True):
-        dpg.add_text("Please select COM port to start coordinator:")
+    # put this windows at last, o.t.w. "modal" doesn't work
+    with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=True,
+                    no_close=False):
+        dpg.add_text("Please select serial port to start coordinator:")
         com_list = stl.comports()
-        com_list_2 = []  # test
         if not com_list:
             dpg.add_text("No ports detected, check connection!", color=params.rgb_red)
         else:
@@ -423,31 +384,35 @@ def main():
             with dpg.group(label="grpWelcome", horizontal=True):
                 dpg.add_button(label="Open Port", tag="btnOpenPort", callback=btnOpenPort_callback,
                                user_data=dpg.get_value("selComPort"))
+                dpg.bind_item_theme("btnOpenPort", "themeBlue")
                 dpg.add_text("", tag="portOpenMsg")
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
 
-    with dpg.window(label="", tag="winLoadingIndicator", pos=params.winLoadingIndicator_pos, modal=True, show=False, no_close=True):
+    with dpg.window(label="", tag="winLoadingIndicator", pos=params.winLoadingIndicator_pos, modal=True, show=False,
+                    no_close=True):
         dpg.add_text("Network discovery in progress...")
         with dpg.group(horizontal=True):
-            dpg.add_spacer(width=80*params.scale/2)
+            dpg.add_spacer(width=params.discovery_indicator_x_offset)
             dpg.add_loading_indicator()
 
     # set font
     with dpg.font_registry():
-        font = dpg.add_font("font/OpenSans-Regular.ttf", 15*params.scale, tag="sans")
-    dpg.bind_font("sans")
-
+        dpg.add_font("font/OpenSans-Regular.ttf", 15 * params.scale, tag="sans")
+        dpg.add_font("font/Montserrat-Regular.ttf", 15 * params.scale, tag="mont")
+    dpg.bind_font("mont")
 
     ## GUI ready
     # dpg.set_primary_window("main",True)
-    dpg.create_viewport(title='Zigbee Network Host Application', small_icon='./figure/icon.ico', large_icon='./figure/icon.ico',
+    dpg.create_viewport(title='Zigbee Network Host Application', small_icon='./figure/icon.ico',
+                        large_icon='./figure/icon.ico',
                         width=params.main_width, height=params.main_height, x_pos=500, y_pos=200, resizable=False)
     dpg.setup_dearpygui()
     dpg.set_exit_callback(exit_callback)
     dpg.show_viewport()
     dpg.start_dearpygui()
     dpg.destroy_context()
+
 
 if __name__ == '__main__':
     main()

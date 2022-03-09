@@ -10,9 +10,9 @@ ctypes.windll.shcore.SetProcessDpiAwareness(2)
 dpg.create_context()
 
 with dpg.font_registry():
-    font = dpg.add_font("../font/OpenSans-Regular.ttf", 15*2, tag="sans-font")
+    font = dpg.add_font("../font/OpenSans-Regular.ttf", 15*3, tag="sans-font")
 dpg.bind_font("sans-font")
-dpg.set_global_font_scale(0.5)
+dpg.set_global_font_scale(1)
 
 
 
