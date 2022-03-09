@@ -8,6 +8,7 @@ from digi.xbee.util import utils
 from digi.xbee.filesystem import FileSystemException,update_remote_filesystem_image
 
 from gui_callback import *
+from helper_funcs import *
 
 try:
     # deal with dpi issue on Windows
@@ -71,18 +72,6 @@ def get_temp_callback():
             break
 
 
-def cb_network_modified(event_type, reason, node):
-    print("  >>>> Network event:")
-    print("         Type: %s (%d)" % (event_type.description, event_type.code))
-    print("         Reason: %s (%d)" % (reason.description, reason.code))
-
-    if not node:
-      return
-
-    print("         Node:")
-    print("            %s" % node)
-
-
 def com_radio_button_callback(sender, app_data):
     serial_param.PORT = app_data.partition(':')[0]
     # e.g. input app_data: "COM7: USB Serial Port (COM7)", here take COM7 out
@@ -120,8 +109,10 @@ def exit_callback():
 def menu_show_metric_callback():
     last_item = dpg.show_tool(dpg.mvTool_Metrics)
 
+
 def btn_update_info_cancel_callback():
     dpg.hide_item("winUpdateDialog")
+
 
 def ota_update_progress_callback(info: str,progress: int):
     dpg.configure_item("txtOTAUpdateStatus", default_value=info+": "+str(progress)+"%")
@@ -148,6 +139,7 @@ def comboNodesCopy_callback():
             dpg.delete_item("tipBtnUpdateInfoProceed")
         dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
 
+
 def btnUpdateInfoOpen_callback():
     dpg.configure_item("winUpdateDialog", modal=False)
     dpg.show_item("winUpdateDialog")
@@ -171,21 +163,6 @@ def _ota_process(sender, app_data):
         dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
     # very flexible to pass user data
     dpg.set_item_user_data("btnUpdateInfoProceed",app_data['file_path_name'])
-
-def centering_windows(modal_id,viewport_width,viewport_height, height_offset):
-    '''
-    help centering the windows/message box
-    :param modal_id: windows tag
-    :param viewport_width: viewport width got at run time when windows is created
-    :param viewport_height: viewport height
-    :return: None
-    '''
-    # guarantee these commands happen in another frame
-    dpg.split_frame()
-    width = dpg.get_item_width(modal_id)
-    height = dpg.get_item_height(modal_id)
-    dpg.set_item_pos(modal_id,
-                     [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2 - height_offset])
 
 
 def menu_ota_callback():
@@ -316,7 +293,7 @@ def main():
             with dpg.tree_node(label="Node Table", default_open=True):
                 with dpg.table(header_row=True, row_background=False,
                                borders_innerH=True, borders_outerH=True, borders_innerV=True,
-                               borders_outerV=False, delay_search=True, tag="tableNodes") as table_id:
+                               borders_outerV=False, resizable=True, sortable=True, tag="tableNodes"):
 
                     dpg.add_table_column(label="Node ID")
                     dpg.add_table_column(label="addr_64")

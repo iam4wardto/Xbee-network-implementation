@@ -1,3 +1,5 @@
+import dearpygui.dearpygui as dpg
+
 from gui_callback import *
 from net_cfg import *
 
@@ -18,6 +20,22 @@ def node_pos_generate(coord_pos: List[int], index: int):
             coord_pos[1] + (quotient + 1) * pos_diff[mod][1] * scatter_size]
 
 
+def centering_windows(modal_id,viewport_width,viewport_height, height_offset):
+    '''
+    help centering the windows/message box
+    :param modal_id: windows tag
+    :param viewport_width: viewport width got at run time when windows is created
+    :param viewport_height: viewport height
+    :return: None
+    '''
+    # guarantee these commands happen in another frame
+    dpg.split_frame()
+    width = dpg.get_item_width(modal_id)
+    height = dpg.get_item_height(modal_id)
+    dpg.set_item_pos(modal_id,
+                     [viewport_width // 2 - width // 2, viewport_height // 2 - height // 2 - height_offset])
+
+
 def put_node_into_list(node):
     '''
     used when refresh node info in the list view
@@ -34,8 +52,8 @@ def add_column_tableNodes():
     add colune in the "tableNodes"
     :return:
     '''
-    dpg.add_table_column(default_sort=True, width=20, label="Node ID", parent="tableNodes")
-    dpg.add_table_column(width=40, label="addr_64", parent="tableNodes")
+    dpg.add_table_column(default_sort=True, label="Node ID", parent="tableNodes")
+    dpg.add_table_column(label="addr_64", parent="tableNodes")
     dpg.add_table_column(label="addr_16", parent="tableNodes")
     dpg.add_table_column(label="RSSI", parent="tableNodes")
 
@@ -56,6 +74,24 @@ def init_nodes_temp_table():
         with dpg.table_row(parent="tableFuncPanelTemps"):
             dpg.add_text(node.get_node_id())
             dpg.add_text("n/a")
+
+
+def select_node_callback(): # there's no node clicked callback... so attach this to mouse-click handler
+    node_selected = dpg.get_selected_nodes("nodeEditor")
+    if bool(node_selected)==True:
+        dpg.delete_item("tableNodeInfoAll", children_only=True)
+        add_column_tableNodeInfoAll()
+        if dpg.get_item_label(node_selected[0]) == net.coord.get_node_id():
+            node_tmp = net.coord
+        else:
+            for node in net.nodes:
+                if dpg.get_item_label(node_selected[0]) == node.get_node_id():
+                    node_tmp = node
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("net role")
+            dpg.add_text(node_tmp.get_role().description)
+
+    dpg.clear_selected_nodes("nodeEditor")
 
 
 def refresh_node_info_and_add_to_main_windows():
@@ -96,15 +132,19 @@ def refresh_node_info_and_add_to_main_windows():
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
                 # dpg.add_text("Network Link")
                 pass
-        # inherit RemoteXbeeDevice class, and construct our node_container object *important!
+        # inherit <RemoteXbeeDevice> class, and construct <node_container> object *important!
         tmp_obj = node_container(node)
         # get rssi value of each node using AT command "DB"
         tmp_obj.rssi = -utils.bytes_to_int(node.get_parameter("DB"))
         net.nodes_obj.append(tmp_obj)
+
         # put each node info into list view
         with dpg.table_row(parent="tableNodes"):
             put_node_into_list(node)
             dpg.add_text("{} dbm".format(tmp_obj.rssi))
+
+        # after draw a node, save the next drawing index for node_pos_generate()
+        dpg.set_item_user_data("nodeEditor", index+1)
 
     # add links found by deep discovery
     dpg.delete_item("tableLinks", children_only=True)

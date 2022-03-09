@@ -23,24 +23,6 @@ def refresh_nodes_temp_table():
             dpg.add_text(obj.temperature)
 
 
-def select_node_callback(): # there's no node clicked callback...
-    node_selected = dpg.get_selected_nodes("nodeEditor")
-    if bool(node_selected)==True:
-        dpg.delete_item("tableNodeInfoAll", children_only=True)
-        add_column_tableNodeInfoAll()
-        if dpg.get_item_label(node_selected[0]) == net.coord.get_node_id():
-            node_tmp = net.coord
-        else:
-            for node in net.nodes:
-                if dpg.get_item_label(node_selected[0]) == node.get_node_id():
-                    node_tmp = node
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("net role")
-            dpg.add_text(node.get_role().description)
-
-    dpg.clear_selected_nodes("nodeEditor")
-
-
 # Callback for discovered devices.
 def callback_device_discovered(remote):
     net.log.log_info("Device discovered: %s" % remote.get_parameter("NI").decode())
@@ -56,6 +38,18 @@ def callback_discovery_finished(status):
         net.log.log_info("Discovery process finished successfully.")
     else:
         print("There was an error discovering devices: %s" % status.description)
+
+
+def cb_network_modified(event_type, reason, node):
+    print("  >>>> Network event:")
+    print("         Type: %s (%d)" % (event_type.description, event_type.code))
+    print("         Reason: %s (%d)" % (reason.description, reason.code))
+
+    if not node:
+      return
+
+    print("         Node:")
+    print("            %s" % node)
 
 
 def btnOpenPort_callback(sender, app_data, user_data):
