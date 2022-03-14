@@ -31,7 +31,7 @@ def callback_device_discovered(remote):
     print("Device discovered: {}".format(remote.get_parameter("NI").decode()))
 
 
-# Callback for discovery finished. # TODO print this to gui -ing
+# Callback for discovery finished.
 def callback_discovery_finished(status):
     if status == NetworkDiscoveryStatus.SUCCESS:
         print("Discovery process finished successfully.")
