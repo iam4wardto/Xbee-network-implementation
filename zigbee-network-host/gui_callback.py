@@ -52,6 +52,10 @@ def cb_network_modified(event_type, reason, node):
     print("            %s" % node)
 
 
+def io_samples_callback(sample, remote, time):
+    print("New sample received from %s - %s" % (remote.get_64bit_addr(), sample))
+
+
 def btnOpenPort_callback(sender, app_data, user_data):
     try:
         dpg.set_value("portOpenMsg", "Please wait...")
@@ -65,16 +69,19 @@ def btnOpenPort_callback(sender, app_data, user_data):
         # continue scanning...
         net.xbee_network = net.coord.get_network()
         # Configure the discovery options.
-        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE, )
-        net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5, time_bw_scans=5)
+        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.FLOOD )#CASCADE
+        net.xbee_network.set_deep_discovery_timeouts(node_timeout=8, time_bw_requests=5, time_bw_scans=5)
         net.xbee_network.clear()
+
+        # add network callback
         net.xbee_network.add_device_discovered_callback(callback_device_discovered)
         net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
         net.xbee_network.add_network_modified_callback(cb_network_modified)
         net.coord.add_data_received_callback(coord_data_received_callback)
+        #net.coord.add_io_sample_received_callback(io_samples_callback)
 
 
-        time.sleep(1)
+        time.sleep(0.5)
         dpg.hide_item("winWelcome")
 
         net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
@@ -96,19 +103,42 @@ def btnOpenPort_callback(sender, app_data, user_data):
         dpg.set_value("portOpenMsg", "Failed, check again")
         dpg.bind_item_theme("portOpenMsg", "themeRed")
 
+def btnRefresh_callback(sender, app_data, user_data):
+    net.xbee_network.clear()
+    net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
+    print("Discovering remote XBee devices...")
+    net.log.log_info("Discovering remote XBee devices...")
+
+    # configure loading windows
+    while net.xbee_network.is_discovery_running():
+        dpg.show_item("winLoadingIndicator")
+    net.nodes = net.xbee_network.get_devices()
+    net.connections = net.xbee_network.get_connections()
+    dpg.hide_item("winLoadingIndicator")
+    refresh_node_info_and_add_to_main_windows()
+    init_nodes_temp_table()
+
 
 # Callback for coord when receive data
 def coord_data_received_callback(xbee_message):
     addr_64 = xbee_message.remote_device.get_64bit_addr()
     data = xbee_message.data.decode("utf8")
     print("Received data from %s: %s" % (addr_64, data))
-    data = json.loads(data)
-    #print(data.get("response"))
-    for obj in net.nodes_obj:
-        if obj.node_xbee.get_64bit_addr() == addr_64:
-            obj.temperature = str(data.get("response")[0])
-    # TODO use switch to select which function response this is
-    refresh_nodes_temp_table()
+
+    try:
+        mes_time = xbee_message.timestamp # returned by time.time(): 1234892919.655932
+        data = json.loads(data)
+    except: # other api frames generated with event
+        pass
+    else: # json decode success
+        if data.get("category") == -1: # device power-on event
+            pass
+        elif data.get("category") == 3:
+            for obj in net.nodes_obj:
+                if obj.node_xbee.get_64bit_addr() == addr_64:
+                    obj.temperature = str(data.get("response")[0])
+            # TODO use switch to select which function response this is
+            refresh_nodes_temp_table()
 
 
 

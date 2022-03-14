@@ -122,16 +122,19 @@ def refresh_node_info_and_add_to_main_windows():
     net.nodes_obj.clear()  # clear list of our container object for each node, ready for the next refresh
     for index, node in enumerate(net.nodes, start=2):
         id = node.get_node_id()
+
         with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index), parent="nodeEditor"):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
                 dpg.add_text("addr_64:\n{}".format(node.get_64bit_addr()))
                 dpg.add_text("addr_16:{}".format(node.get_16bit_addr()))
+                dpg.add_text("status:{}".format("ONLINE"),tag=''.join(['txt',id, 'Status']))
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input, tag='-'.join([id, 'input'])):
                 # dpg.add_text("Network Link")
                 pass
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
                 # dpg.add_text("Network Link")
                 pass
+
         # inherit <RemoteXbeeDevice> class, and construct <node_container> object *important!
         tmp_obj = node_container(node)
         # get rssi value of each node using AT command "DB"

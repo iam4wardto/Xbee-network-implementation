@@ -56,6 +56,7 @@ def _help(message):  # to add help tooltip for the last item
 def get_temp_callback():
     node_name = dpg.get_value("comboNodes")
     if node_name == None:  # user not selected
+        net.log.log_error("Please select node first.")
         return
     """
             command list encoded in JSON
@@ -70,6 +71,7 @@ def get_temp_callback():
                                                       DATA_TO_SEND)
             net.log.log_debug("[{}.get_temp {}]".format(node_name, send_response.transmit_status))
             break
+        net.log.log_error("Internal error, selected node not in the net.")
 
 
 def com_radio_button_callback(sender, app_data):
@@ -284,7 +286,15 @@ def main():
 
         with dpg.collapsing_header(label="Nodes Graph View", default_open=True):
             dpg.add_text("Link denotes network connection.", bullet=True)
-            dpg.add_button(label="Maximize", tag="btnMaxNodeView", callback=max_node_view_callback)
+            with dpg.group(horizontal=True):
+                dpg.add_button(label="Maximize", tag="btnMaxNodeView", callback=max_node_view_callback)
+                dpg.add_button(label="Refresh", tag="btnRefreshAllNet", callback=btnRefresh_callback)
+                dpg.bind_item_theme("btnMaxNodeView", "themeBlue")
+                dpg.bind_item_theme("btnRefreshAllNet", "themeBlue")
+                with dpg.tooltip("btnRefreshAllNet"):
+                    dpg.add_text("start new discovery")
+                with dpg.tooltip("btnMaxNodeView"):
+                    dpg.add_text("maximize node graph view")
             with dpg.node_editor(
                     callback=lambda sender, app_data: dpg.add_node_link(app_data[0], app_data[1], parent=sender),
                     delink_callback=lambda sender, app_data: dpg.delete_item(app_data), tag="nodeEditor"):
@@ -335,6 +345,7 @@ def main():
 
             with dpg.tab(label="Temperature"):
                 dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
+                dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
                 with dpg.collapsing_header(label="Nodes Temp", default_open=True):
                     with dpg.table(header_row=True, row_background=False,
                                    borders_innerH=True, borders_outerH=True, borders_innerV=True,

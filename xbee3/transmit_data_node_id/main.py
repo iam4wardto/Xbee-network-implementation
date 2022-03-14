@@ -4,6 +4,7 @@
 import sys
 import xbee
 import time
+import json
 import machine
 from sys import stdin, stdout
 
@@ -20,12 +21,28 @@ def find_device(node_id):
     return None
 
 
+def send_power_on_message():
+    DATA_TO_SEND = json.dumps({"category": -1, "id": 0, "response": None})
+    xbee.transmit(xbee.ADDR_COORDINATOR, DATA_TO_SEND)
+
+
 def status_cb(status):
-   print("Received status: {:02X}".format(status))
+    if status == 0x02:
+        print("0x02 Joined network")
+        send_power_on_message()
+    '''if status == 0x00: # not receiving this status
+        for i in range(100):
+            print("received 0x00")
+            time.sleep_ms(200)'''
+
+    print("Received status: {:02X}".format(status))
 
 
 def init_xbee():
-    xbee_settings = {"NI": "ROUTER1", "CE": 0, "ID": 0x1219, "PS": 1}
+    addr_64_low = ''.join('{:02X}'.format(x) for x in xbee.atcmd('SL'))
+    NODE_ID = '-'.join(['ROUTER', addr_64_low[-4:]])
+
+    xbee_settings = {"NI": NODE_ID, "CE": 0, "ID": 0x1219, "PS": 1, 'NW': 1}
     # NI: readable node id, change separately
     # CE: start network, 1 for coord
     # ID: 64bit-PAN-id of our network
@@ -43,26 +60,13 @@ def init_xbee():
 def main():
     xbee.modem_status.callback(status_cb)
     init_xbee()
-    #print(machine.reset_cause())
+    try:
+        send_power_on_message() # always send handshake when power on
+    except:
+        print("COORD not available")
 
-    TARGET_NODE_ID = "COORD"
-    MESSAGE = "Hello from ROUTER1!"
-
-    # Find the device with the configure node identifier.
-    device = find_device(TARGET_NODE_ID)
-    if not device:
-        print("Could not find the device with node id '%s'" % TARGET_NODE_ID)
-        sys.exit(-1)
-    else:
-        addr_16 = device['sender_nwk']
-        addr_64 = device['sender_eui64']
-
-    '''try:
-        # Some protocols do not have 16-bit address. In those cases, use the 64-bit one.
-        xbee.transmit(addr_16 if addr_16 else addr_64, MESSAGE)
-        print("Data sent successfully")
-    except Exception as err:
-        print("Transmit failure: %s" % str(err))'''
+    #TARGET_ADDR = ''.join('{:02X}'.format(x) for x in xbee.ADDR_COORDINATOR)
+    TARGET_NODE_ID = "COORDINATOR"
 
     print("Receiving and transmitting...")
     while True:
