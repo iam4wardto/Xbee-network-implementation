@@ -56,7 +56,7 @@ def main():
         # Configure the discovery options.
         xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE,
                                         del_not_discovered_nodes_in_last_scan=False)
-        xbee_network.set_deep_discovery_timeouts(node_timeout=20, time_bw_requests=10,
+        xbee_network.set_deep_discovery_timeouts(node_timeout=10, time_bw_requests=10,
                                         time_bw_scans=20)
 
         xbee_network.clear()
@@ -76,6 +76,16 @@ def main():
         print("nodes in network:", len(nodes)+1)
         for node in nodes:
             print("node:", node.get_64bit_addr(),'-',node.get_node_id())
+            print(node.get_protocol().description)
+            print(''.join('{:02X}'.format(x) for x in node.get_parameter("VR")))
+            print(''.join('{:02X}'.format(x) for x in node.get_parameter("HV")))
+            print(node.get_power_level().description)
+            print(int(''.join('{:02X}'.format(x) for x in node.get_parameter("%V")),16),"mV")
+            print(int.from_bytes(node.get_parameter("%V"),'big'), "mV")
+            print(int.from_bytes(node.get_parameter("TP"),'big'),"C")
+            print(int.from_bytes(node.get_parameter("AP"),'little'))
+            print("")
+
         #print(nodes[0].get_node_id()) # cannot get node_id of remote module
 
         # send data test

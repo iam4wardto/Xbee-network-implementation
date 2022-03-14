@@ -1,7 +1,9 @@
 import dearpygui.dearpygui as dpg
 
+from digi.xbee.models.mode import OperatingMode
 from gui_callback import *
 from net_cfg import *
+
 
 def node_pos_generate(coord_pos: List[int], index: int):
     '''
@@ -59,7 +61,7 @@ def add_column_tableNodes():
 
 
 def add_column_tableNodeInfoAll():
-    dpg.add_table_column(label="Zigbee",parent="tableNodeInfoAll")
+    dpg.add_table_column(label="Zigbee Module",parent="tableNodeInfoAll")
     dpg.add_table_column(label="Attribute",parent="tableNodeInfoAll")
     dpg.add_table_column(label="Floodlight",parent="tableNodeInfoAll")
     dpg.add_table_column(label="Attribute",parent="tableNodeInfoAll")
@@ -90,6 +92,33 @@ def select_node_callback(): # there's no node clicked callback... so attach this
         with dpg.table_row(parent="tableNodeInfoAll"):
             dpg.add_text("net role")
             dpg.add_text(node_tmp.get_role().description)
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("protocol")
+            dpg.add_text(node_tmp.get_protocol().description)
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("operating mode")
+            mode_tmp = int.from_bytes(node_tmp.get_parameter("AP"),'little')
+            for mode in OperatingMode:
+                if mode.code == mode_tmp:
+                    mode_des = mode.description
+            dpg.add_text(mode_des)
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("firmware version")
+            dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("VR")))
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("hardware version")
+            dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("HV")))
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("power level")
+            dpg.add_text(node_tmp.get_power_level().description)
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("temperature")
+            # byte array to hex string, then to string, e.g. 0987 mv, then to int, then to str
+            #dpg.add_text(''.join([str(int(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("TP")),16))," °C"]))
+            dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("TP"),'big')), " °C"]))
+        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("voltage supplied")
+            dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("%V"),'big'))," mV"]))
 
     dpg.clear_selected_nodes("nodeEditor")
 

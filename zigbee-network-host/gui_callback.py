@@ -38,6 +38,7 @@ def callback_discovery_finished(status):
         net.log.log_info("Discovery process finished successfully.")
     else:
         print("There was an error discovering devices: %s" % status.description)
+        net.log.log_error(status.description)
 
 
 def cb_network_modified(event_type, reason, node):
