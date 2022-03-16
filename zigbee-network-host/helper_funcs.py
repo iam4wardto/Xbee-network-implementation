@@ -1,8 +1,20 @@
 import dearpygui.dearpygui as dpg
 
+from typing import Union, Sequence, List
 from digi.xbee.models.mode import OperatingMode
 from gui_callback import *
 from net_cfg import *
+
+def generate_map_url():
+    map_url = "https://maps.googleapis.com/maps/api/staticmap?" \
+              "size=1000x400&scale=2" \
+              "&maptype=roadmap" \
+              "&map_id=c0881174066edcec" \
+              "&key=AIzaSyBlLnKa2csTpSt1gdlyg-j_dYkEg_F9wlc" \
+              "&markers=size:mid%7Ccolor:blue%7Clabel:1%7C47.375164,8.545840"\
+              "&markers=size:mid%7Ccolor:green%7Clabel:2%7C47.378155,8.545888" \
+              "&markers=size:mid%7Ccolor:red%7Clabel:3%7C47.376233,8.548458"
+    return map_url
 
 
 def node_pos_generate(coord_pos: List[int], index: int):

@@ -9,6 +9,8 @@ from digi.xbee.filesystem import FileSystemException,update_remote_filesystem_im
 
 from gui_callback import *
 from helper_funcs import *
+import urllib.request
+from PIL import Image
 
 try:
     # deal with dpi issue on Windows
@@ -37,10 +39,28 @@ def add_theme_to_gui():
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_blue)
 
+    with dpg.theme(tag="themeWinBgBlack"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_WindowBg, [0, 0, 0], category=dpg.mvThemeCat_Core)
+
     with dpg.theme() as global_theme:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,9)
     dpg.bind_theme(global_theme)
+
+def set_gui_theme():
+    dpg.bind_item_theme("winMenuAbout", "themeWinBgBlack")
+
+def add_image_to_gui():
+    width0, height0, channels0, data0 = dpg.load_image("./figure/floodlight.png")
+    width1, height1, channels1, data1 = dpg.load_image("./figure/eth_logo.png")
+    width2, height2, channels2, data2 = dpg.load_image("./figure/rsl_logo_white.png")
+
+    with dpg.texture_registry():
+        texture_id_0 = dpg.add_static_texture(width0, height0, data0)
+        texture_id_1 = dpg.add_static_texture(width1, height1, data1)
+        texture_id_2 = dpg.add_static_texture(width2, height2, data2)
+    return [texture_id_0, texture_id_1, texture_id_2]
 
 
 def _help(message):  # to add help tooltip for the last item
@@ -82,6 +102,10 @@ def com_radio_button_callback(sender, app_data):
 def log_callback(sender, app_data, user_data):
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
+
+def menuAbout_callback():
+    dpg.show_item("winMenuAbout")
+    centering_windows("winMenuAbout",dpg.get_viewport_client_width(),dpg.get_viewport_client_height(),20 * params.scale)
 
 def max_node_view_callback(sender, app_data, user_data):
     btn_label = dpg.get_item_label("btnMaxNodeView")
@@ -237,6 +261,7 @@ def main():
     dev_logger.addHandler(handler)
 
     add_theme_to_gui()
+    gui_image = add_image_to_gui()
 
     with dpg.window(label="", tag="winUpdateIndicator", pos=params.winLoadingIndicator_pos, modal=True, show=False):
         with dpg.group(horizontal=True):
@@ -280,9 +305,8 @@ def main():
                 dpg.add_menu_item(label="Show Item Registry", callback=lambda: dpg.show_tool(dpg.mvTool_ItemRegistry))
 
             with dpg.menu(label="Settings"):
-                dpg.add_menu_item(label="Wait For Input", check=True,
-                                  callback=lambda s, a: dpg.configure_app(wait_for_input=a))
                 dpg.add_menu_item(label="Toggle Fullscreen", callback=lambda: dpg.toggle_viewport_fullscreen())
+                dpg.add_menu_item(label="About", check=False, callback=menuAbout_callback)
 
         with dpg.collapsing_header(label="Nodes Graph View", default_open=True):
             dpg.add_text("Link denotes network connection.", bullet=True)
@@ -319,9 +343,24 @@ def main():
                                borders_outerV=False, delay_search=True, tag="tableLinks"):
                     pass
 
-    with dpg.window(label="Confirm  Exit", tag="winExitConfirm", pos=params.winExitConfirm_pos, modal=True, show=False):
-        dpg.add_button(label="Yes", tag="btnExitConfirmYes")
-        dpg.add_button(label="Cancel", tag="btnExitConfirmNo")
+    with dpg.window(label="About Semester Project", tag="winMenuAbout", autosize=True, modal=False, show=False,
+                    no_background=False, no_close=False, no_collapse=True):
+        with dpg.table(header_row=False, row_background=False,
+                       borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                       borders_outerV=False, resizable=False, sortable=True) as tableAbout:
+            dpg.add_table_column(width=350, width_fixed=True)
+            dpg.add_table_column(width_stretch=True)
+            with dpg.table_row():
+                dpg.add_text("Implementing Distributed Network Communication\nfor Outdoor Sensor Network\n")
+                # dpg.add_text("for Outdoor Sensor Network")
+                # dpg.add_text("")
+                dpg.add_image(gui_image[1], width=548, height=200)
+            with dpg.table_row():
+                dpg.add_text("Author: Yue Li\nTeammate: Cedric Weibel\nSupervisor: Hendrik Kolvenbach, Konrad Meyer\n ")
+                # dpg.add_text("Teammate: Cedric Weibel")
+                # dpg.add_text("Supervisor: Hendrik Kolvenbach, Konrad Meyer")
+                dpg.add_image(gui_image[2], width=408, height=160)
+        dpg.add_image(gui_image[0])
 
     with dpg.window(label="Logger", tag="winLog", pos=params.winLog_pos, width=params.logger_width,
                     height=params.logger_height,
@@ -356,6 +395,15 @@ def main():
                 pass
             with dpg.tab(label="Cyclic"):
                 pass
+            with dpg.tab(label="Location"):
+                map_url = generate_map_url()
+                urllib.request.urlretrieve(map_url, "map.png")
+                width, height, channels, data = dpg.load_image("map.png")
+                with dpg.texture_registry():
+                    texture_map = dpg.add_static_texture(width, height, data)
+                dpg.add_image(texture_map)
+
+
 
     # put this windows at last, o.t.w. "modal" doesn't work
     with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=True,
@@ -383,6 +431,9 @@ def main():
         with dpg.group(horizontal=True):
             dpg.add_spacer(width=params.discovery_indicator_x_offset)
             dpg.add_loading_indicator()
+
+    # set theme
+    set_gui_theme()
 
     # set font
     with dpg.font_registry():

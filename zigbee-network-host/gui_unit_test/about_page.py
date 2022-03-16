@@ -25,10 +25,14 @@ with dpg.theme(tag="themeWinBgBlack"):
     with dpg.theme_component(dpg.mvAll):
         dpg.add_theme_color(dpg.mvThemeCol_WindowBg, [0,0,0],category=dpg.mvThemeCat_Core)
 
-width, height, channels, data = dpg.load_image("../figure/floodlight.png")
+width1, height1, channels1, data1 = dpg.load_image("../figure/floodlight.png")
+width2, height2, channels2, data2 = dpg.load_image("../figure/eth_logo.png")
+width3, height3, channels3, data3 = dpg.load_image("../figure/rsl_logo_white.png")
 
 with dpg.texture_registry():
-    texture_id_1 = dpg.add_static_texture(width, height, data)
+    texture_id_1 = dpg.add_static_texture(width1, height1, data1)
+    texture_id_2 = dpg.add_static_texture(width2, height2, data2)
+    texture_id_3 = dpg.add_static_texture(width3, height3, data3)
 
 with dpg.window(label="test", width=800, height=800, pos=(100, 100), tag="__demo_id"):
     with dpg.menu_bar():
@@ -48,11 +52,22 @@ with dpg.window(label="test", width=800, height=800, pos=(100, 100), tag="__demo
 
 
 with dpg.window(label="About Semester Project", autosize=True, modal=False, show=False,
-                no_background=False, no_close=False) as winMenuAbout:
-    dpg.add_text("Implementing Distributed Network Communication for Outdoor Sensor Network")
-    dpg.add_text("Author: Yue Li")
-    dpg.add_text("Teammate: Cedric Weibel")
-    dpg.add_text("Supervisor: Hendrik Kolvenbach, Konrad Meyer")
+                no_background=False, no_close=False, ) as winMenuAbout:
+    with dpg.table(header_row=False, row_background=False,
+                   borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                   borders_outerV=False, resizable=False, sortable=True) as tableAbout:
+        dpg.add_table_column(width=350,width_fixed=True)
+        dpg.add_table_column(width_stretch=True)
+        with dpg.table_row():
+            dpg.add_text("Implementing Distributed Network Communication\nfor Outdoor Sensor Network\n")
+            #dpg.add_text("for Outdoor Sensor Network")
+            #dpg.add_text("")
+            dpg.add_image(texture_id_2,width=548,height=200)
+        with dpg.table_row():
+            dpg.add_text("Author: Yue Li\nTeammate: Cedric Weibel\nSupervisor: Hendrik Kolvenbach, Konrad Meyer\n ")
+            #dpg.add_text("Teammate: Cedric Weibel")
+            #dpg.add_text("Supervisor: Hendrik Kolvenbach, Konrad Meyer")
+            dpg.add_image(texture_id_3,width=408,height=160)
     dpg.add_image(texture_id_1)
 
 dpg.bind_item_theme(winMenuAbout, "themeWinBgBlack")

@@ -4,7 +4,6 @@ from dearpygui_ext import logger
 from digi.xbee.devices import *
 from digi.xbee.models import *
 from digi.xbee.util import utils
-from typing import Union, Sequence, List
 from net_cfg import *
 from helper_funcs import *
 
