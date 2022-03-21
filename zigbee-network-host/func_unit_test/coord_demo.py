@@ -84,6 +84,7 @@ def main():
             print(int.from_bytes(node.get_parameter("%V"),'big'), "mV")
             print(int.from_bytes(node.get_parameter("TP"),'big'),"C")
             print(int.from_bytes(node.get_parameter("AP"),'little'))
+            print("check:", xbee_network.is_node_in_network(node))
             print("")
 
         #print(nodes[0].get_node_id()) # cannot get node_id of remote module

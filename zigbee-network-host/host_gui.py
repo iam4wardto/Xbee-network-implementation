@@ -23,6 +23,13 @@ dpg.create_context()
 
 
 def add_theme_to_gui():
+    with dpg.theme(tag="__demo_hyperlinkTheme"):
+        with dpg.theme_component(dpg.mvButton):
+            dpg.add_theme_color(dpg.mvThemeCol_Button, [0, 0, 0, 0])
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonActive, [0, 0, 0, 0])
+            dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered, [29, 151, 236, 25])
+            dpg.add_theme_color(dpg.mvThemeCol_Text, [29, 151, 236])
+
     with dpg.theme(tag="themeRed"):
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_red)
@@ -39,11 +46,15 @@ def add_theme_to_gui():
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_blue)
 
+    with dpg.theme(tag="themeLightGreen"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_green2)
+
     with dpg.theme(tag="themeWinBgBlack"):
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_WindowBg, [0, 0, 0], category=dpg.mvThemeCat_Core)
 
-    with dpg.theme() as global_theme:
+    with dpg.theme(tag="themeGlobal") as global_theme:
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,9)
     dpg.bind_theme(global_theme)
@@ -55,12 +66,14 @@ def add_image_to_gui():
     width0, height0, channels0, data0 = dpg.load_image("./figure/floodlight.png")
     width1, height1, channels1, data1 = dpg.load_image("./figure/eth_logo.png")
     width2, height2, channels2, data2 = dpg.load_image("./figure/rsl_logo_white.png")
+    width3, height3, channels3, data3 = dpg.load_image("./figure/gui_demo.jpg")
 
     with dpg.texture_registry():
         texture_id_0 = dpg.add_static_texture(width0, height0, data0)
         texture_id_1 = dpg.add_static_texture(width1, height1, data1)
         texture_id_2 = dpg.add_static_texture(width2, height2, data2)
-    return [texture_id_0, texture_id_1, texture_id_2]
+        texture_id_3 = dpg.add_static_texture(width3, height3, data3)
+    return [texture_id_0, texture_id_1, texture_id_2, texture_id_3]
 
 
 def _help(message):  # to add help tooltip for the last item
@@ -106,6 +119,10 @@ def log_callback(sender, app_data, user_data):
 def menuAbout_callback():
     dpg.show_item("winMenuAbout")
     centering_windows("winMenuAbout",dpg.get_viewport_client_width(),dpg.get_viewport_client_height(),20 * params.scale)
+
+def menuGettingStarted_callback():
+    dpg.show_item("winMenuGettingStarted")
+    centering_windows("winMenuGettingStarted",dpg.get_viewport_client_width(),dpg.get_viewport_client_height(),20 * params.scale)
 
 def max_node_view_callback(sender, app_data, user_data):
     btn_label = dpg.get_item_label("btnMaxNodeView")
@@ -247,6 +264,8 @@ def menu_ota_callback():
         if dpg.does_item_exist("tipBtnUpdateInfoProceed"):
             dpg.delete_item("tipBtnUpdateInfoProceed")
 
+def winStarted_close_callback():
+    dpg.configure_item("winWelcome", modal=True)
 
 def main():
     ## create logger for Xbee Class
@@ -305,8 +324,9 @@ def main():
                 dpg.add_menu_item(label="Show Item Registry", callback=lambda: dpg.show_tool(dpg.mvTool_ItemRegistry))
 
             with dpg.menu(label="Settings"):
-                dpg.add_menu_item(label="Toggle Fullscreen", callback=lambda: dpg.toggle_viewport_fullscreen())
-                dpg.add_menu_item(label="About", check=False, callback=menuAbout_callback)
+                dpg.add_menu_item(label="Set Fullscreen", check=True, callback=lambda: dpg.toggle_viewport_fullscreen())
+                dpg.add_menu_item(label="Getting Started", callback=menuGettingStarted_callback)
+                dpg.add_menu_item(label="About", callback=menuAbout_callback)
 
         with dpg.collapsing_header(label="Nodes Graph View", default_open=True):
             dpg.add_text("Link denotes network connection.", bullet=True)
@@ -362,6 +382,7 @@ def main():
                 dpg.add_image(gui_image[2], width=408, height=160)
         dpg.add_image(gui_image[0])
 
+
     with dpg.window(label="Logger", tag="winLog", pos=params.winLog_pos, width=params.logger_width,
                     height=params.logger_height,
                     no_close=True, no_move=True):
@@ -401,12 +422,12 @@ def main():
                 width, height, channels, data = dpg.load_image("map.png")
                 with dpg.texture_registry():
                     texture_map = dpg.add_static_texture(width, height, data)
-                dpg.add_image(texture_map)
+                dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width/2))
 
 
 
     # put this windows at last, o.t.w. "modal" doesn't work
-    with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=True,
+    with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=False,
                     no_close=False):
         dpg.add_text("Please select serial port to start coordinator:")
         com_list = stl.comports()
@@ -424,6 +445,50 @@ def main():
                 dpg.add_text("", tag="portOpenMsg")
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
+
+    with dpg.window(label="Getting Started", tag="winMenuGettingStarted", autosize=True, modal=True,
+                    no_background=False, no_close=False, no_collapse=True,pos=params.winStarted_pos,
+                    on_close=winStarted_close_callback):
+        with dpg.group(horizontal=True):
+            dpg.add_loading_indicator(circle_count=4)
+            with dpg.group():
+                dpg.add_text("A short guide helps you through this application.")
+                with dpg.group(horizontal=True):
+                    dpg.add_text("The code for this GUI can be found here:")
+                    hyperlink("Host GUI", "https://github.com/iam4wardto/Xbee-network-implementation")
+
+        dpg.add_spacer(height=10 * params.scale)
+
+        with dpg.table(header_row=False, row_background=False,
+                       borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                       borders_outerV=False, resizable=False, sortable=True) as tableAbout:
+            dpg.add_table_column(width=200, width_fixed=True)
+            dpg.add_table_column(width=400, width_fixed=True)
+            dpg.add_table_column(width=200, width_fixed=True)
+            with dpg.table_row():
+                with dpg.group():
+                    dpg.add_spacer(height=6*params.scale)
+                    with dpg.tree_node(label="Main Windows", default_open=True, tag="treeMain"):
+                        dpg.add_text("- Graph View")
+                        dpg.add_text("- Node List")
+                        dpg.add_text("- Connection List")
+
+                dpg.add_image(gui_image[3],width=500*params.scale, height=333*params.scale)
+
+                with dpg.group(horizontal=False, tag="grpWinGettingStarted"):
+                    dpg.add_spacer(height=6*params.scale)
+                    with dpg.tree_node(label="Function Panel", default_open=True):
+                        dpg.add_text("- Functions under Each Tab")
+                        dpg.add_text("- Broadcasting")
+                        dpg.add_text("- Individual Node Control")
+                    dpg.add_spacer(height=150 * params.scale)
+                    with dpg.tree_node(label="Logger", default_open=True):
+                        dpg.add_text("- Comprehensive Log")
+        dpg.bind_item_theme("treeMain","themeLightGreen")
+        dpg.bind_item_theme("grpWinGettingStarted", "themeLightGreen")
+
+        dpg.add_spacer(height=10 * params.scale)
+        dpg.add_text("* You can find this page under: Settings -> Getting Started.")
 
     with dpg.window(label="", tag="winLoadingIndicator", pos=params.winLoadingIndicator_pos, modal=True, show=False,
                     no_close=True):

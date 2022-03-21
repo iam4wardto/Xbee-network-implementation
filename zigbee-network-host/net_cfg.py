@@ -33,11 +33,13 @@ class params:
     winLog_pos = [400 * scale, 350 * scale]
     winFuncPanel_pos = [400 * scale, 0]
     winWelcome_pos = [250 * scale, 180 * scale]
+    winStarted_pos = [50 * scale, 30 * scale]
     winLoadingIndicator_pos = [400 * scale, 200 * scale]
 
     # colors
     rgb_red = [255, 0, 0]
     rgb_green = [0, 255, 0]
+    rgb_green2 = [255, 179, 13]
     rgb_white = [255, 255, 255]
     rgb_blue = [0,191,255]
 
@@ -52,7 +54,7 @@ class network:
     xbee_network = None  # class <XBeeNetwork>, represents an XBee Network
     nodes = None         # nodes discovered, list of <remoteXbeeDevice> object
     nodes_id = []        # nodes names, exclude coord
-    available_nodes = [] # available nodes id, deal with node add and removal
+    available_nodes = []  # available nodes id, deal with node add and removal
     nodes_obj = []       # list of <node_container> object to save info
     connections = None   # link in the network
     NODE_ID = "NI"
@@ -74,6 +76,8 @@ class node_container:
     rssi = float('-inf')  # rssi value foe each node
     led_color = []
 
+    # status check
+    handshake_time = None
 
 # instantiate the <network> object
 global net

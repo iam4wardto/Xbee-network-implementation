@@ -1,16 +1,21 @@
 import dearpygui.dearpygui as dpg
+import webbrowser
 
 from typing import Union, Sequence, List
 from digi.xbee.models.mode import OperatingMode
 from gui_callback import *
 from net_cfg import *
 
+def hyperlink(text, address):
+    b = dpg.add_button(label=text, callback=lambda:webbrowser.open(address))
+    dpg.bind_item_theme(b, "__demo_hyperlinkTheme")
+
 def generate_map_url():
     map_url = "https://maps.googleapis.com/maps/api/staticmap?"\
-              "size=1000x400&scale=2" \
+              "size=640x320&scale=2" \
               "&maptype=roadmap" \
               "&map_id=c0881174066edcec" \
-              "&key=MY-KEY" \
+              "&key=AIzaSyBlLnKa2csTpSt1gdlyg-j_dYkEg_F9wlc" \
               "&markers=size:mid%7Ccolor:blue%7Clabel:1%7C47.375164,8.545840"\
               "&markers=size:mid%7Ccolor:green%7Clabel:2%7C47.378155,8.545888" \
               "&markers=size:mid%7Ccolor:red%7Clabel:3%7C47.376233,8.548458"
@@ -82,6 +87,7 @@ def add_column_tableNodeInfoAll():
 def init_nodes_temp_table():
     '''
     to int, put n/a in the temperature list in function panel
+    when init, only read from nodes discovered
     :return:
     '''
     for node in net.nodes:
@@ -98,39 +104,45 @@ def select_node_callback(): # there's no node clicked callback... so attach this
         if dpg.get_item_label(node_selected[0]) == net.coord.get_node_id():
             node_tmp = net.coord
         else:
-            for node in net.nodes:
-                if dpg.get_item_label(node_selected[0]) == node.get_node_id():
-                    node_tmp = node
+            for obj in net.nodes_obj:
+                if dpg.get_item_label(node_selected[0]) == obj.node_xbee.get_node_id():
+                    node_tmp = obj.node_xbee
         with dpg.table_row(parent="tableNodeInfoAll"):
             dpg.add_text("net role")
             dpg.add_text(node_tmp.get_role().description)
         with dpg.table_row(parent="tableNodeInfoAll"):
             dpg.add_text("protocol")
             dpg.add_text(node_tmp.get_protocol().description)
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("operating mode")
-            mode_tmp = int.from_bytes(node_tmp.get_parameter("AP"),'little')
-            for mode in OperatingMode:
-                if mode.code == mode_tmp:
-                    mode_des = mode.description
-            dpg.add_text(mode_des)
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("firmware version")
-            dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("VR")))
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("hardware version")
-            dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("HV")))
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("power level")
-            dpg.add_text(node_tmp.get_power_level().description)
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("temperature")
-            # byte array to hex string, then to string, e.g. 0987 mv, then to int, then to str
-            #dpg.add_text(''.join([str(int(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("TP")),16))," °C"]))
-            dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("TP"),'big')), " °C"]))
-        with dpg.table_row(parent="tableNodeInfoAll"):
-            dpg.add_text("voltage supplied")
-            dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("%V"),'big'))," mV"]))
+        try:
+            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("operating mode")
+                mode_tmp = int.from_bytes(node_tmp.get_parameter("AP"),'little')
+                for mode in OperatingMode:
+                    if mode.code == mode_tmp:
+                        mode_des = mode.description
+                dpg.add_text(mode_des)
+            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("firmware version")
+                dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("VR")))
+            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("hardware version")
+                dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("HV")))
+            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("power level")
+                dpg.add_text(node_tmp.get_power_level().description)
+            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("temperature")
+                # byte array to hex string, then to string, e.g. 0987 mv, then to int, then to str
+                #dpg.add_text(''.join([str(int(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("TP")),16))," °C"]))
+                dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("TP"),'big')), " °C"]))
+            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("voltage supplied")
+                dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("%V"),'big'))," mV"]))
+            '''with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("handshake time")
+                dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("%V"), 'big')), " mV"]))'''
+        except:
+            net.log.log_debug("Timeout getting {} info.".format(dpg.get_item_label(node_selected[0])))
 
     dpg.clear_selected_nodes("nodeEditor")
 
@@ -160,15 +172,30 @@ def refresh_node_info_and_add_to_main_windows():
     with dpg.table_row(parent="tableNodes"):
         put_node_into_list(net.coord)
 
-    net.nodes_obj.clear()  # clear list of our container object for each node, ready for the next refresh
+    net.nodes_obj.clear()       # clear list of our container object for each node, ready for construct
+    net.available_nodes.clear() # clear list of tracked nodes
+
+    # prioritize this for loop, because drawings take time
+    # we want to construct net.nodes_obj a.s.a.p
+    for index, node in enumerate(net.nodes):
+        # inherit <RemoteXbeeDevice> class, and construct <node_container> object *important!
+        tmp_obj = node_container(node)
+        net.nodes_obj.append(tmp_obj)
+    net.available_nodes = net.nodes # assign currently discovered nodes
+
+    for obj in net.nodes_obj:
+        # get rssi value of each node using AT command "DB"
+        obj.rssi = -utils.bytes_to_int(obj.node_xbee.get_parameter("DB"))
+
     for index, node in enumerate(net.nodes, start=2):
         id = node.get_node_id()
 
-        with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index), parent="nodeEditor"):
+        with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index),
+                      tag=''.join(['node', id, 'Graph']), parent="nodeEditor"):
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
                 dpg.add_text("addr_64:\n{}".format(node.get_64bit_addr()))
                 dpg.add_text("addr_16:{}".format(node.get_16bit_addr()))
-                dpg.add_text("status:{}".format("ONLINE"),tag=''.join(['txt',id, 'Status']))
+                dpg.add_text(default_value="status:{}".format("ONLINE"),tag=''.join(['txt',id, 'Status']))
             with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input, tag='-'.join([id, 'input'])):
                 # dpg.add_text("Network Link")
                 pass
@@ -176,16 +203,14 @@ def refresh_node_info_and_add_to_main_windows():
                 # dpg.add_text("Network Link")
                 pass
 
-        # inherit <RemoteXbeeDevice> class, and construct <node_container> object *important!
-        tmp_obj = node_container(node)
-        # get rssi value of each node using AT command "DB"
-        tmp_obj.rssi = -utils.bytes_to_int(node.get_parameter("DB"))
-        net.nodes_obj.append(tmp_obj)
+        # 1: online; 0: offline. used for graph view update when check status
+        dpg.set_item_user_data(''.join(['node', id, 'Graph']),1)
+        dpg.bind_item_theme(''.join(['txt', id, 'Status']), "themeGreen")
 
         # put each node info into list view
         with dpg.table_row(parent="tableNodes"):
             put_node_into_list(node)
-            dpg.add_text("{} dbm".format(tmp_obj.rssi))
+            dpg.add_text("{} dbm".format(-utils.bytes_to_int(node.get_parameter("DB"))))
 
         # after draw a node, save the next drawing index for node_pos_generate()
         dpg.set_item_user_data("nodeEditor", index+1)
