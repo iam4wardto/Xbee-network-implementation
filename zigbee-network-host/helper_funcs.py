@@ -3,6 +3,7 @@ import webbrowser
 
 from typing import Union, Sequence, List
 from digi.xbee.models.mode import OperatingMode
+from digi.xbee.util import utils
 from gui_callback import *
 from net_cfg import *
 
@@ -61,9 +62,27 @@ def put_node_into_list(node):
     :param node: xbee node object
     :return: none
     '''
-    dpg.add_text(node.get_node_id())
-    dpg.add_text(node.get_64bit_addr())
+    # except for new node
+    id = node.get_node_id()
+    if id is None: # when newly added
+        id = node.get_parameter("NI").decode()
+
+    dpg.add_text(id)
     dpg.add_text(node.get_16bit_addr())
+    tmp_txt = dpg.add_text("ONLINE")
+    dpg.bind_item_theme(tmp_txt, "themeGreen")
+
+def put_node_obj_into_list(obj):
+    '''
+    used when refresh node info in the list view
+    :param node: xbee node object
+    :return: none
+    '''
+    dpg.add_text(obj.node_xbee.get_node_id())
+    dpg.add_text(obj.node_xbee.get_16bit_addr())
+
+    txt_tmp = dpg.add_text("ONLINE" if obj.is_available == True else "OFFLINE")
+    dpg.bind_item_theme(txt_tmp,"themeGreen" if obj.is_available == True else "themeRed")
 
 
 def add_column_tableNodes():
@@ -72,9 +91,20 @@ def add_column_tableNodes():
     :return:
     '''
     dpg.add_table_column(default_sort=True, label="Node ID", parent="tableNodes")
-    dpg.add_table_column(label="addr_64", parent="tableNodes")
     dpg.add_table_column(label="addr_16", parent="tableNodes")
+    dpg.add_table_column(label="Status", parent="tableNodes")
     dpg.add_table_column(label="RSSI", parent="tableNodes")
+
+def refresh_tableNodes():
+    dpg.delete_item("tableNodes",children_only=True)
+    add_column_tableNodes()
+    with dpg.table_row(parent="tableNodes"):
+        put_node_into_list(net.coord)
+    for obj in net.nodes_obj:
+        with dpg.table_row(parent="tableNodes"):
+            put_node_obj_into_list(obj)
+            if obj.is_available:
+                dpg.add_text("{} dbm".format(-utils.bytes_to_int(obj.node_xbee.get_parameter("DB"))))
 
 
 def add_column_tableNodeInfoAll():
@@ -168,6 +198,29 @@ def select_node_callback():
 
     dpg.clear_selected_nodes("nodeEditor")
 
+def draw_node(node, coord_pos, index):
+    id = node.get_node_id()
+    if id is None: # when newly added
+        id = node.get_parameter("NI").decode()
+    with dpg.node(label=id, pos=node_pos_generate(coord_pos, index),
+                  tag=''.join(['node', id, 'Graph']), parent="nodeEditor") as node_here:
+        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
+            dpg.add_text("addr_64:\n{}".format(node.get_64bit_addr()))
+            dpg.add_text("addr_16:{}".format(node.get_16bit_addr()))
+            tmp_txt = dpg.add_text(default_value="status: {}".format("ONLINE"), tag=''.join(['txt', id, 'Status']))
+            dpg.bind_item_theme(tmp_txt,"themeGreen")
+        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input, tag='-'.join([id, 'input'])):
+            # dpg.add_text("Network Link")
+            pass
+        with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
+            # dpg.add_text("Network Link")
+            pass
+
+    # denotes node online, true if we just draw it
+    dpg.set_item_user_data(node_here, 1)
+
+    # after draw a node, save the next drawing index for node_pos_generate()
+    dpg.set_item_user_data("nodeEditor", index + 1)
 
 def refresh_node_info_and_add_to_main_windows():
     dpg.delete_item("nodeEditor", children_only=True)
@@ -197,6 +250,18 @@ def refresh_node_info_and_add_to_main_windows():
     net.nodes_obj.clear()       # clear list of our container object for each node, ready for construct
     net.available_nodes.clear() # clear list of tracked nodes
 
+    # there's ghost cache in the net, when a node left, it can be still discovered for a short while
+    # here we check, if cached, node_id returns None
+    nodes_checked = []
+    for node in net.nodes:
+        try:
+            node.get_parameter("NI").decode()
+        except:
+            pass
+        else:
+            nodes_checked.append(node)
+    net.nodes = nodes_checked
+
     # prioritize this for loop, because drawings take time
     # we want to construct net.nodes_obj a.s.a.p
     for index, node in enumerate(net.nodes):
@@ -205,6 +270,7 @@ def refresh_node_info_and_add_to_main_windows():
         net.nodes_obj.append(tmp_obj)
     net.available_nodes = net.nodes # assign currently discovered nodes
 
+
     for obj in net.nodes_obj:
         # get rssi value of each node using AT command "DB"
         obj.rssi = -utils.bytes_to_int(obj.node_xbee.get_parameter("DB"))
@@ -212,18 +278,8 @@ def refresh_node_info_and_add_to_main_windows():
     for index, node in enumerate(net.nodes, start=2):
         id = node.get_node_id()
 
-        with dpg.node(label=id, pos=node_pos_generate(params.coord_pos, index),
-                      tag=''.join(['node', id, 'Graph']), parent="nodeEditor"):
-            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Static):
-                dpg.add_text("addr_64:\n{}".format(node.get_64bit_addr()))
-                dpg.add_text("addr_16:{}".format(node.get_16bit_addr()))
-                dpg.add_text(default_value="status:{}".format("ONLINE"),tag=''.join(['txt',id, 'Status']))
-            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Input, tag='-'.join([id, 'input'])):
-                # dpg.add_text("Network Link")
-                pass
-            with dpg.node_attribute(attribute_type=dpg.mvNode_Attr_Output, tag='-'.join([id, 'output'])):
-                # dpg.add_text("Network Link")
-                pass
+        # on node_editor
+        draw_node(node, params.coord_pos, index)
 
         # 1: online; 0: offline. used for graph view update when check status
         dpg.set_item_user_data(''.join(['node', id, 'Graph']),1)
@@ -234,13 +290,10 @@ def refresh_node_info_and_add_to_main_windows():
             put_node_into_list(node)
             dpg.add_text("{} dbm".format(-utils.bytes_to_int(node.get_parameter("DB"))))
 
-        # after draw a node, save the next drawing index for node_pos_generate()
-        dpg.set_item_user_data("nodeEditor", index+1)
-
     # add links found by deep discovery
     dpg.delete_item("tableLinks", children_only=True)
     dpg.add_table_column(label="links", parent="tableLinks")
-    dpg.add_table_column(label="LQI index", parent="tableLinks")
+    dpg.add_table_column(label="LQI index           ", parent="tableLinks",width=100*params.scale, width_fixed=True)
 
     for connect in net.connections:
         # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing

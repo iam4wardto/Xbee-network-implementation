@@ -108,8 +108,9 @@ def get_temp_callback():
                 net.log.log_info("[transmit {}.get_temp {}]".format(node_name, "Success"))
             else:
                 net.log.log_error("[transmit {}.get_temp {}]".format(node_name, send_response.transmit_status.description))
-            break
-        net.log.log_error("Internal error, selected node not in the net.")
+            return
+    # if not found this node
+    net.log.log_error("Internal error, selected node not in the net.")
 
 
 def com_radio_button_callback(sender, app_data):
@@ -260,7 +261,7 @@ def menu_ota_callback():
 
         centering_windows(modal_id, viewport_width, viewport_height, 40 * params.scale)
 
-    # re-show windows, refresh info
+    # re-show windows, refresh info from node list
     dpg.show_item("winUpdateDialog")
     dpg.configure_item("comboNodesCopy", items=dpg.get_item_configuration("comboNodes")['items'])
     dpg.configure_item("txtOTAUpdateStatus", default_value='')
@@ -364,8 +365,8 @@ def main():
                                borders_outerV=False, resizable=True, sortable=True, tag="tableNodes"):
 
                     dpg.add_table_column(label="Node ID")
-                    dpg.add_table_column(label="addr_64")
-                    dpg.add_table_column(label="addr_16")
+                    dpg.add_table_column(label="Addr_16")
+                    dpg.add_table_column(label="Status")
 
                     for i in range(5):  # dummy init table
                         with dpg.table_row():
@@ -375,7 +376,8 @@ def main():
                 with dpg.table(header_row=True, row_background=False,
                                borders_innerH=True, borders_outerH=True, borders_innerV=True,
                                borders_outerV=False, delay_search=True, tag="tableLinks"):
-                    pass
+                    dpg.add_table_column(label="links")
+                    dpg.add_table_column(label="LQI index           ",width=100*params.scale, width_fixed=True)
 
     with dpg.window(label="About Semester Project", tag="winMenuAbout", autosize=True, modal=False, show=False,
                     no_background=False, no_close=False, no_collapse=True):

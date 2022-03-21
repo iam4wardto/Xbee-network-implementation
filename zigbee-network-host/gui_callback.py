@@ -4,7 +4,6 @@ import dearpygui.dearpygui as dpg
 from dearpygui_ext import logger
 from digi.xbee.devices import *
 from digi.xbee.models import *
-from digi.xbee.util import utils
 from net_cfg import *
 from helper_funcs import *
 
@@ -25,10 +24,13 @@ def refresh_nodes_temp_table():
 
 # Callback for discovered devices.
 def callback_device_discovered(remote):
-    net.log.log_info("Device discovered: %s" % remote.get_parameter("NI").decode())
-    #print("Device discovered: {}, RSSI: {}".format(remote.get_parameter("NI").decode(),
-    #                                               utils.bytes_to_int(remote.get_parameter("DB"))   ))
-    print("Device discovered: {}".format(remote.get_parameter("NI").decode()))
+    try:
+        net.log.log_info("Device discovered: %s" % remote.get_parameter("NI").decode())
+        #print("Device discovered: {}, RSSI: {}".format(remote.get_parameter("NI").decode(),
+        #                                               utils.bytes_to_int(remote.get_parameter("DB"))   ))
+        print("Device discovered: {}".format(remote.get_parameter("NI").decode()))
+    except: # leave timeout caused by cached node
+        pass
 
 
 # Callback for discovery finished.
@@ -57,6 +59,8 @@ def refresh_available_nodes():
     # refresh available nodes when status changed
     net.available_nodes = [obj.node_xbee for obj in net.nodes_obj if obj.is_available == True]
     net.available_nodes_id = [node.get_node_id() for node in net.available_nodes]
+    if dpg.get_value("comboNodes") not in net.available_nodes_id:
+        dpg.set_value("comboNodes", None)
     dpg.configure_item("comboNodes", items=net.available_nodes_id + ["All Nodes"])
 
 
@@ -68,17 +72,20 @@ def check_node_handshake_time():
                 # change this node to OFFLINE, and update GUI info
                 obj.is_available = False
                 id = obj.node_xbee.get_node_id()
-                dpg.configure_item(''.join(['txt',id, 'Status']),default_value="status:{}".format("OFFLINE"))
+                dpg.configure_item(''.join(['txt',id, 'Status']),default_value="status: {}".format("OFFLINE"))
                 dpg.bind_item_theme(''.join(['txt',id, 'Status']),"themeRed")
 
                 # print this debug info only once
+                # use user data set for each node graph, True if online
                 if dpg.get_item_user_data(''.join(['node', id, 'Graph'])):
                     net.log.log_debug("Node {} offline.".format(id))
                     dpg.set_item_user_data(''.join(['node', id, 'Graph']),0)
-                bool_has_editted = True
+                    bool_has_editted = True
 
+    # change status to OFFLINE if ONLINE before
     if bool_has_editted:
         refresh_available_nodes()
+        refresh_tableNodes()
 
 
 def io_samples_callback(sample, remote, time):
@@ -92,19 +99,31 @@ def io_samples_callback(sample, remote, time):
             incoming_node.handshake_time = time
 
             id = incoming_node.node_xbee.get_node_id()
-            # change status if OFFLINE before
+
+            # change status to ONLINE if OFFLINE before
             if incoming_node.is_available == False:
-                dpg.configure_item(''.join(['txt', id, 'Status']), default_value="status:{}".format("ONLINE"))
+                dpg.configure_item(''.join(['txt', id, 'Status']), default_value="status: {}".format("ONLINE"))
                 dpg.set_item_user_data(''.join(['node', id, 'Graph']), 1)
                 dpg.bind_item_theme(''.join(['txt', id, 'Status']), "themeGreen")
                 net.log.log_debug("Node {} online.".format(id))
+                incoming_node.is_available = True
+                refresh_tableNodes()
 
-            incoming_node.is_available = True
             refresh_available_nodes()
             check_node_handshake_time()
+
         else:
             # this is a new node, not discovered in the previous network discovery
-            pass
+            tmp_obj = node_container(remote)
+            net.nodes_obj.append(tmp_obj)
+
+            # add node graph
+            refresh_available_nodes()
+            with dpg.table_row(parent="tableNodes"):
+                put_node_into_list(remote)
+                dpg.add_text("{} dbm".format(-utils.bytes_to_int(remote.get_parameter("DB"))))
+            draw_node(remote, params.coord_pos, dpg.get_item_user_data("nodeEditor"))
+            net.log.log_info("New node {} added!".format(remote.get_node_id()))
 
 
 def btnOpenPort_callback(sender, app_data, user_data):
@@ -120,7 +139,8 @@ def btnOpenPort_callback(sender, app_data, user_data):
         # continue scanning...
         net.xbee_network = net.coord.get_network()
         # Configure the discovery options.
-        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.FLOOD )#CASCADE
+        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.FLOOD,
+                                                    del_not_discovered_nodes_in_last_scan = True)#CASCADE
         net.xbee_network.set_deep_discovery_timeouts(node_timeout=8, time_bw_requests=5, time_bw_scans=5)
         net.xbee_network.clear()
 
