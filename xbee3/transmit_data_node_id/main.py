@@ -5,7 +5,7 @@ import sys
 import xbee
 import time
 import json
-import machine
+from machine import Pin
 from sys import stdin, stdout
 
 
@@ -42,7 +42,7 @@ def init_xbee():
     addr_64_low = ''.join('{:02X}'.format(x) for x in xbee.atcmd('SL'))
     NODE_ID = '-'.join(['ROUTER', addr_64_low[-4:]])
 
-    xbee_settings = {"NI": NODE_ID, "CE": 0, "ID": 0x1219, "PS": 1, 'NW': 1}
+    xbee_settings = {"NI": NODE_ID, "CE": 0, "ID": 0x1219, "PS": 1, 'NW': 1, 'IR':0x1F40}
     # NI: readable node id, change separately
     # CE: start network, 1 for coord
     # ID: 64bit-PAN-id of our network
@@ -51,6 +51,8 @@ def init_xbee():
         xbee.atcmd(command, value)
     xbee.atcmd("AC")  # Apply changes
     time.sleep(1)
+    # enable a PIN for I/O sampling
+    Pin.board.D1.mode(Pin.IN)
     '''print("Connecting to network, please wait...")
     while xbee.atcmd("AI") != 0:
         time.sleep(1)
