@@ -54,7 +54,8 @@ class network:
     xbee_network = None  # class <XBeeNetwork>, represents an XBee Network
     nodes = None         # nodes discovered, list of <remoteXbeeDevice> object
     nodes_id = []        # nodes names, exclude coord
-    available_nodes = []  # available nodes id, deal with node add and removal
+    available_nodes = []  # available nodes of <remoteXbeeDevice>, deal with node add and removal
+    available_nodes_id = []
     nodes_obj = []       # list of <node_container> object to save info
     connections = None   # link in the network
     NODE_ID = "NI"

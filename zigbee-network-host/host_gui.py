@@ -1,20 +1,20 @@
-import serial.tools.list_ports as stl
 import json
 import time
+import urllib.request
 
+import serial.tools.list_ports as stl
+from PIL import Image
 from digi.xbee.devices import *
+from digi.xbee.filesystem import FileSystemException, update_remote_filesystem_image
 from digi.xbee.models import *
 from digi.xbee.util import utils
-from digi.xbee.filesystem import FileSystemException,update_remote_filesystem_image
-
 from gui_callback import *
 from helper_funcs import *
-import urllib.request
-from PIL import Image
 
 try:
     # deal with dpi issue on Windows
     import ctypes
+
     ctypes.windll.shcore.SetProcessDpiAwareness(2)
 finally:
     pass
@@ -56,11 +56,13 @@ def add_theme_to_gui():
 
     with dpg.theme(tag="themeGlobal") as global_theme:
         with dpg.theme_component(dpg.mvAll):
-            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5,9)
+            dpg.add_theme_style(dpg.mvStyleVar_FramePadding, 5, 9)
     dpg.bind_theme(global_theme)
+
 
 def set_gui_theme():
     dpg.bind_item_theme("winMenuAbout", "themeWinBgBlack")
+
 
 def add_image_to_gui():
     width0, height0, channels0, data0 = dpg.load_image("./figure/floodlight.png")
@@ -102,7 +104,10 @@ def get_temp_callback():
         if obj.node_xbee.get_node_id() == node_name:
             send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
                                                       DATA_TO_SEND)
-            net.log.log_debug("[{}.get_temp {}]".format(node_name, send_response.transmit_status))
+            if send_response.transmit_status.description == "Success":
+                net.log.log_info("[transmit {}.get_temp {}]".format(node_name, "Success"))
+            else:
+                net.log.log_error("[transmit {}.get_temp {}]".format(node_name, send_response.transmit_status.description))
             break
         net.log.log_error("Internal error, selected node not in the net.")
 
@@ -118,11 +123,15 @@ def log_callback(sender, app_data, user_data):
 
 def menuAbout_callback():
     dpg.show_item("winMenuAbout")
-    centering_windows("winMenuAbout",dpg.get_viewport_client_width(),dpg.get_viewport_client_height(),20 * params.scale)
+    centering_windows("winMenuAbout", dpg.get_viewport_client_width(), dpg.get_viewport_client_height(),
+                      20 * params.scale)
+
 
 def menuGettingStarted_callback():
     dpg.show_item("winMenuGettingStarted")
-    centering_windows("winMenuGettingStarted",dpg.get_viewport_client_width(),dpg.get_viewport_client_height(),20 * params.scale)
+    centering_windows("winMenuGettingStarted", dpg.get_viewport_client_width(), dpg.get_viewport_client_height(),
+                      20 * params.scale)
+
 
 def max_node_view_callback(sender, app_data, user_data):
     btn_label = dpg.get_item_label("btnMaxNodeView")
@@ -157,8 +166,8 @@ def btn_update_info_cancel_callback():
     dpg.hide_item("winUpdateDialog")
 
 
-def ota_update_progress_callback(info: str,progress: int):
-    dpg.configure_item("txtOTAUpdateStatus", default_value=info+": "+str(progress)+"%")
+def ota_update_progress_callback(info: str, progress: int):
+    dpg.configure_item("txtOTAUpdateStatus", default_value=info + ": " + str(progress) + "%")
 
 
 def btn_update_info_proceed_callback():
@@ -197,15 +206,15 @@ def _ota_process(sender, app_data):
     :param app_data: selected file address
     :return: none
     '''
-    #print("Sender: ", sender)
-    #print(app_data)
-    dpg.configure_item("txtSelectedImage",default_value=app_data['file_name'])
+    # print("Sender: ", sender)
+    # print(app_data)
+    dpg.configure_item("txtSelectedImage", default_value=app_data['file_name'])
     if dpg.get_value("comboNodesCopy") != 'None':
         if dpg.does_item_exist("tipBtnUpdateInfoProceed"):
             dpg.delete_item("tipBtnUpdateInfoProceed")
         dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
     # very flexible to pass user data
-    dpg.set_item_user_data("btnUpdateInfoProceed",app_data['file_path_name'])
+    dpg.set_item_user_data("btnUpdateInfoProceed", app_data['file_path_name'])
 
 
 def menu_ota_callback():
@@ -229,43 +238,48 @@ def menu_ota_callback():
                         with dpg.group(horizontal=True):
                             dpg.add_text("Please select node:   ")
                             dpg.add_combo(dpg.get_item_configuration("comboNodes")['items'], label="",
-                                          height_mode=dpg.mvComboHeight_Regular,tag="comboNodesCopy",
-                                          default_value='None',callback=comboNodesCopy_callback)
+                                          height_mode=dpg.mvComboHeight_Regular, tag="comboNodesCopy",
+                                          default_value='None', callback=comboNodesCopy_callback)
 
                         with dpg.group(horizontal=True):
                             dpg.add_text("Selected OTA image:")
-                            dpg.add_input_text(default_value='Please open file selector.',readonly=True,tag="txtSelectedImage")
-                            dpg.add_button(label="open", tag="btnUpdateInfoOpen",callback=btnUpdateInfoOpen_callback)
+                            dpg.add_input_text(default_value='Please open file selector.', readonly=True,
+                                               tag="txtSelectedImage")
+                            dpg.add_button(label="open", tag="btnUpdateInfoOpen", callback=btnUpdateInfoOpen_callback)
                             dpg.bind_item_theme("btnUpdateInfoOpen", "themeBlue")
                         with dpg.group(horizontal=True):
                             dpg.add_text("Update status:           ")
                             dpg.add_input_text(default_value='', readonly=True, tag="txtOTAUpdateStatus")
                         with dpg.group(horizontal=True):
-                            dpg.add_button(label="Proceed",tag="btnUpdateInfoProceed")
+                            dpg.add_button(label="Proceed", tag="btnUpdateInfoProceed")
                             dpg.bind_item_theme("btnUpdateInfoProceed", "themeBlue")
-                            dpg.add_spacer(width=25*params.scale)
-                            dpg.add_button(label="Cancel",tag="btnUpdateInfoCancel",callback=btn_update_info_cancel_callback)
+                            dpg.add_spacer(width=25 * params.scale)
+                            dpg.add_button(label="Cancel", tag="btnUpdateInfoCancel",
+                                           callback=btn_update_info_cancel_callback)
                             dpg.bind_item_theme("btnUpdateInfoCancel", "themeBlue")
 
-        centering_windows(modal_id, viewport_width, viewport_height,40*params.scale)
+        centering_windows(modal_id, viewport_width, viewport_height, 40 * params.scale)
 
     # re-show windows, refresh info
     dpg.show_item("winUpdateDialog")
     dpg.configure_item("comboNodesCopy", items=dpg.get_item_configuration("comboNodes")['items'])
     dpg.configure_item("txtOTAUpdateStatus", default_value='')
 
-    if dpg.get_value("comboNodesCopy") == 'None' or dpg.get_value("txtSelectedImage") == "Please open file selector.": # user didn't finish selection
-        dpg.configure_item("btnUpdateInfoProceed",callback=None)
+    if dpg.get_value("comboNodesCopy") == 'None' or dpg.get_value(
+            "txtSelectedImage") == "Please open file selector.":  # user didn't finish selection
+        dpg.configure_item("btnUpdateInfoProceed", callback=None)
         if not dpg.does_item_exist("tipBtnUpdateInfoProceed"):
-            with dpg.tooltip("btnUpdateInfoProceed",tag="tipBtnUpdateInfoProceed"):
+            with dpg.tooltip("btnUpdateInfoProceed", tag="tipBtnUpdateInfoProceed"):
                 dpg.add_text("Please finish selection first!")
     else:
         dpg.configure_item("btnUpdateInfoProceed", callback=btn_update_info_proceed_callback)
         if dpg.does_item_exist("tipBtnUpdateInfoProceed"):
             dpg.delete_item("tipBtnUpdateInfoProceed")
 
+
 def winStarted_close_callback():
     dpg.configure_item("winWelcome", modal=True)
+
 
 def main():
     ## create logger for Xbee Class
@@ -382,7 +396,6 @@ def main():
                 dpg.add_image(gui_image[2], width=408, height=160)
         dpg.add_image(gui_image[0])
 
-
     with dpg.window(label="Logger", tag="winLog", pos=params.winLog_pos, width=params.logger_width,
                     height=params.logger_height,
                     no_close=True, no_move=True):
@@ -396,14 +409,14 @@ def main():
         combo_id = dpg.add_combo(items, label="Nodes List", height_mode=dpg.mvComboHeight_Regular, tag="comboNodes")
         dpg.add_color_edit((120, 100, 200, 255), label="color selector")
         _help("Select color for LED control.")
-        with dpg.tab_bar(tag="tabFuncPanel"):
-            with dpg.tab(label="Node Info",tag="tabNodeInfo"):
+        with dpg.tab_bar(tag="tabFuncPanel", reorderable=True):
+            with dpg.tab(label="Node Info", tag="tabNodeInfo"):
                 with dpg.table(header_row=True, row_background=False,
                                borders_innerH=True, borders_outerH=True, borders_innerV=True,
                                borders_outerV=False, resizable=True, tag="tableNodeInfoAll"):
                     add_column_tableNodeInfoAll()
 
-            with dpg.tab(label="Temperature"):
+            with dpg.tab(label="Temperature", tag="tabTemp"):
                 dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
                 dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
                 with dpg.collapsing_header(label="Nodes Temp", default_open=True):
@@ -412,19 +425,17 @@ def main():
                                    borders_outerV=False, delay_search=True, tag="tableFuncPanelTemps"):
                         dpg.add_table_column(label="Node ID")
                         dpg.add_table_column(label="temperature")
-            with dpg.tab(label="LED Color"):
+            with dpg.tab(label="LED Color", tag="tabLEDColor"):
                 pass
-            with dpg.tab(label="Cyclic"):
+            with dpg.tab(label="Cyclic", tag="tabCyclic"):
                 pass
-            with dpg.tab(label="Location"):
+            with dpg.tab(label="Location", tag="tabLocation"):
                 map_url = generate_map_url()
-                urllib.request.urlretrieve(map_url, "map.png")
-                width, height, channels, data = dpg.load_image("map.png")
+                urllib.request.urlretrieve(map_url, "./figure/map.png")
+                width, height, channels, data = dpg.load_image("./figure/map.png")
                 with dpg.texture_registry():
                     texture_map = dpg.add_static_texture(width, height, data)
-                dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width/2))
-
-
+                dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width / 2))
 
     # put this windows at last, o.t.w. "modal" doesn't work
     with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=False,
@@ -447,7 +458,7 @@ def main():
             # if not choose, default, use first choice
 
     with dpg.window(label="Getting Started", tag="winMenuGettingStarted", autosize=True, modal=True,
-                    no_background=False, no_close=False, no_collapse=True,pos=params.winStarted_pos,
+                    no_background=False, no_close=False, no_collapse=True, pos=params.winStarted_pos,
                     on_close=winStarted_close_callback):
         with dpg.group(horizontal=True):
             dpg.add_loading_indicator(circle_count=4)
@@ -467,16 +478,16 @@ def main():
             dpg.add_table_column(width=200, width_fixed=True)
             with dpg.table_row():
                 with dpg.group():
-                    dpg.add_spacer(height=6*params.scale)
+                    dpg.add_spacer(height=6 * params.scale)
                     with dpg.tree_node(label="Main Windows", default_open=True, tag="treeMain"):
                         dpg.add_text("- Graph View")
                         dpg.add_text("- Node List")
                         dpg.add_text("- Connection List")
 
-                dpg.add_image(gui_image[3],width=500*params.scale, height=333*params.scale)
+                dpg.add_image(gui_image[3], width=500 * params.scale, height=333 * params.scale)
 
                 with dpg.group(horizontal=False, tag="grpWinGettingStarted"):
-                    dpg.add_spacer(height=6*params.scale)
+                    dpg.add_spacer(height=6 * params.scale)
                     with dpg.tree_node(label="Function Panel", default_open=True):
                         dpg.add_text("- Functions under Each Tab")
                         dpg.add_text("- Broadcasting")
@@ -484,7 +495,7 @@ def main():
                     dpg.add_spacer(height=150 * params.scale)
                     with dpg.tree_node(label="Logger", default_open=True):
                         dpg.add_text("- Comprehensive Log")
-        dpg.bind_item_theme("treeMain","themeLightGreen")
+        dpg.bind_item_theme("treeMain", "themeLightGreen")
         dpg.bind_item_theme("grpWinGettingStarted", "themeLightGreen")
 
         dpg.add_spacer(height=10 * params.scale)

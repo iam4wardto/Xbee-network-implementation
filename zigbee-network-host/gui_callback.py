@@ -53,10 +53,19 @@ def cb_network_modified(event_type, reason, node):
     print("            %s" % node)
 
 
+def refresh_available_nodes():
+    # refresh available nodes when status changed
+    net.available_nodes = [obj.node_xbee for obj in net.nodes_obj if obj.is_available == True]
+    net.available_nodes_id = [node.get_node_id() for node in net.available_nodes]
+    dpg.configure_item("comboNodes", items=net.available_nodes_id + ["All Nodes"])
+
+
 def check_node_handshake_time():
+    bool_has_editted = False
     for obj in net.nodes_obj:
         if obj.handshake_time is not None:
             if (time.time() - obj.handshake_time)>20:
+                # change this node to OFFLINE, and update GUI info
                 obj.is_available = False
                 id = obj.node_xbee.get_node_id()
                 dpg.configure_item(''.join(['txt',id, 'Status']),default_value="status:{}".format("OFFLINE"))
@@ -66,6 +75,11 @@ def check_node_handshake_time():
                 if dpg.get_item_user_data(''.join(['node', id, 'Graph'])):
                     net.log.log_debug("Node {} offline.".format(id))
                     dpg.set_item_user_data(''.join(['node', id, 'Graph']),0)
+                bool_has_editted = True
+
+    if bool_has_editted:
+        refresh_available_nodes()
+
 
 def io_samples_callback(sample, remote, time):
     # print("New sample received from %s - %s" % (remote.get_64bit_addr(), sample))
@@ -86,7 +100,11 @@ def io_samples_callback(sample, remote, time):
                 net.log.log_debug("Node {} online.".format(id))
 
             incoming_node.is_available = True
-        check_node_handshake_time()
+            refresh_available_nodes()
+            check_node_handshake_time()
+        else:
+            # this is a new node, not discovered in the previous network discovery
+            pass
 
 
 def btnOpenPort_callback(sender, app_data, user_data):

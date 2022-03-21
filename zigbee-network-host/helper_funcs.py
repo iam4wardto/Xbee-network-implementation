@@ -90,29 +90,39 @@ def init_nodes_temp_table():
     when init, only read from nodes discovered
     :return:
     '''
+    dpg.delete_item("tableFuncPanelTemps", children_only=True)
+    dpg.add_table_column(label="Node ID", parent="tableFuncPanelTemps")
+    dpg.add_table_column(label="temperature", parent="tableFuncPanelTemps")
     for node in net.nodes:
         with dpg.table_row(parent="tableFuncPanelTemps"):
             dpg.add_text(node.get_node_id())
             dpg.add_text("n/a")
 
 
-def select_node_callback(): # there's no node clicked callback... so attach this to mouse-click handler
+def select_node_callback():
+    # there's no node clicked callback... so attach this to mouse-click handler
     node_selected = dpg.get_selected_nodes("nodeEditor")
     if bool(node_selected)==True:
+        dpg.set_value("tabFuncPanel", "tabNodeInfo")
         dpg.delete_item("tableNodeInfoAll", children_only=True)
         add_column_tableNodeInfoAll()
+
+        node_obj = None
         if dpg.get_item_label(node_selected[0]) == net.coord.get_node_id():
             node_tmp = net.coord
         else:
             for obj in net.nodes_obj:
                 if dpg.get_item_label(node_selected[0]) == obj.node_xbee.get_node_id():
                     node_tmp = obj.node_xbee
+                    node_obj = obj
         with dpg.table_row(parent="tableNodeInfoAll"):
             dpg.add_text("net role")
             dpg.add_text(node_tmp.get_role().description)
+            dpg.add_text("ball type")
         with dpg.table_row(parent="tableNodeInfoAll"):
             dpg.add_text("protocol")
             dpg.add_text(node_tmp.get_protocol().description)
+            dpg.add_text("led type")
         try:
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("operating mode")
@@ -121,15 +131,23 @@ def select_node_callback(): # there's no node clicked callback... so attach this
                     if mode.code == mode_tmp:
                         mode_des = mode.description
                 dpg.add_text(mode_des)
+                dpg.add_text("led status")
+        except:
+            # if error, doesn't need to execute following part
+            net.log.log_debug("Timeout getting {} info.".format(dpg.get_item_label(node_selected[0])))
+        else:
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("firmware version")
                 dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("VR")))
+                dpg.add_text("device attitude")
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("hardware version")
                 dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("HV")))
+                dpg.add_text("battery")
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("power level")
                 dpg.add_text(node_tmp.get_power_level().description)
+                dpg.add_text("temperature")
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("temperature")
                 # byte array to hex string, then to string, e.g. 0987 mv, then to int, then to str
@@ -138,11 +156,15 @@ def select_node_callback(): # there's no node clicked callback... so attach this
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("voltage supplied")
                 dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("%V"),'big'))," mV"]))
-            '''with dpg.table_row(parent="tableNodeInfoAll"):
-                dpg.add_text("handshake time")
-                dpg.add_text(''.join([str(int.from_bytes(node_tmp.get_parameter("%V"), 'big')), " mV"]))'''
-        except:
-            net.log.log_debug("Timeout getting {} info.".format(dpg.get_item_label(node_selected[0])))
+
+            if node_obj is not None: # node is not COORD
+                with dpg.table_row(parent="tableNodeInfoAll"):
+                    dpg.add_text("handshake time")
+                    if node_obj.handshake_time is None:
+                        dpg.add_text("None")
+                    else:
+                        dpg.add_text(time.ctime(node_obj.handshake_time).split(' ')[3])
+
 
     dpg.clear_selected_nodes("nodeEditor")
 
