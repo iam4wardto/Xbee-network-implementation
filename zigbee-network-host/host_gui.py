@@ -1,5 +1,6 @@
 import json
 import time
+import math
 import urllib.request
 
 import serial.tools.list_ports as stl
@@ -34,6 +35,10 @@ def add_theme_to_gui():
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_red)
 
+    with dpg.theme(tag="themeRed2"):
+        with dpg.theme_component(dpg.mvAll):
+            dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_red2)
+
     with dpg.theme(tag="themeGreen"):
         with dpg.theme_component(dpg.mvAll):
             dpg.add_theme_color(dpg.mvThemeCol_Text, params.rgb_green)
@@ -62,6 +67,9 @@ def add_theme_to_gui():
 
 def set_gui_theme():
     dpg.bind_item_theme("winMenuAbout", "themeWinBgBlack")
+
+def _log(sender, app_data, user_data):
+    print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
 
 def add_image_to_gui():
@@ -406,10 +414,10 @@ def main():
 
     with dpg.window(label="Function Panel", tag="winFuncPanel", pos=params.winFuncPanel_pos, width=params.func_width,
                     height=params.func_height, no_close=True, no_move=True):
-        dpg.add_text("Please choose nodes...")
+        dpg.add_text("Current selected node:")
         items = ("A", "B", "C",)
         combo_id = dpg.add_combo(items, label="Nodes List", height_mode=dpg.mvComboHeight_Regular, tag="comboNodes")
-        dpg.add_color_edit((120, 100, 200, 255), label="color selector")
+        dpg.add_color_edit((195, 67, 100, 255), label="color selector",tag="colorSelector")
         _help("Select color for LED control.")
         with dpg.tab_bar(tag="tabFuncPanel", reorderable=True):
             with dpg.tab(label="Node Info", tag="tabNodeInfo"):
@@ -428,9 +436,39 @@ def main():
                         dpg.add_table_column(label="Node ID")
                         dpg.add_table_column(label="temperature")
             with dpg.tab(label="LED Color", tag="tabLEDColor"):
-                pass
-            with dpg.tab(label="Cyclic", tag="tabCyclic"):
-                pass
+                with dpg.table(header_row=False, row_background=False,
+                            borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                            borders_outerV=False, delay_search=True, tag="tableLEDColor"):
+                    dpg.add_table_column(label="")
+                    dpg.add_table_column(label="")
+                    with dpg.table_row():
+                        with dpg.group():
+                            dpg.add_slider_float(label="Brightness",min_value=0.0,max_value=1.0,format='%.2f')
+                            with dpg.group(horizontal=True):
+                                with dpg.group():
+                                    dpg.add_text("Light Effect      ")
+
+                                    dpg.add_radio_button(("all on  ", "pulsing ", "charging","police ","blinking","rainbow"), horizontal=False,
+                                                         tag="radioButtonLEDEffect")
+                                with dpg.group():
+                                    dpg.add_text("Confirm Node:")
+                                    dpg.bind_item_theme(dpg.last_item(), "themeRed2")
+                                    dpg.add_radio_button(("Single ", "Group "),horizontal=False,tag="radioButtonNodeType")
+                                    dpg.add_text("Confirm Function:")
+                                    dpg.bind_item_theme(dpg.last_item(), "themeRed2")
+                                    dpg.add_checkbox(label="set Color",tag="chbColor")
+                                    dpg.add_checkbox(label="set Brightness", tag="chbBrightness")
+                                    dpg.add_checkbox(label="set Effect", tag="chbEffect")
+
+                            dpg.add_spacer(height=10*params.scale)
+                            with dpg.group(horizontal=True):
+                                dpg.add_button(label="Group Node",tag="btnGroupNode",callback=btnGroupNode_callback)
+                                dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+                                dpg.add_button(label="Send Command",tag="btnSendCommand")
+                                dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+
+
+
             with dpg.tab(label="Location", tag="tabLocation"):
                 map_url = generate_map_url()
                 urllib.request.urlretrieve(map_url, "./figure/map.png")
@@ -458,6 +496,33 @@ def main():
                 dpg.add_text("", tag="portOpenMsg")
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
+
+    with dpg.window(label="Group Node", tag="winGroupNode", autosize=True, pos=params.winWelcome_pos, modal=True,
+                    no_close=False, show=False, user_data=[]):
+        with dpg.table(header_row=False, row_background=False,
+                       borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                       borders_outerV=False, delay_search=True, tag="tableGroupNode"):
+
+            dpg.add_table_column(label="")
+            dpg.add_table_column(label="")
+            dpg.add_table_column(label="")
+
+            nodes_list = dpg.get_item_configuration("comboNodes")['items']
+            row_num = math.ceil(len(nodes_list)/3)
+            for i in range(row_num):
+                with dpg.table_row():
+                    for j in range(3):
+                        try:
+                            nodes_list[3*i+j]
+                        except:
+                            pass
+                        else:
+                            dpg.add_checkbox(label=nodes_list[3*i+j], callback=chbGroupNode_callback
+                                             , user_data=nodes_list[3*i+j])
+
+
+        dpg.add_spacer(height=6*params.scale)
+        dpg.add_button(label="Confirm", callback=btnGroupNodeConfirm_callback)
 
     with dpg.window(label="Getting Started", tag="winMenuGettingStarted", autosize=True, modal=True,
                     no_background=False, no_close=False, no_collapse=True, pos=params.winStarted_pos,
