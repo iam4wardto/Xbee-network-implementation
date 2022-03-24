@@ -77,13 +77,15 @@ def add_image_to_gui():
     width1, height1, channels1, data1 = dpg.load_image("./figure/eth_logo.png")
     width2, height2, channels2, data2 = dpg.load_image("./figure/rsl_logo_white.png")
     width3, height3, channels3, data3 = dpg.load_image("./figure/gui_demo.jpg")
+    width4, height4, channels4, data4 = dpg.load_image("./figure/light_effect.jpg")
 
     with dpg.texture_registry():
         texture_id_0 = dpg.add_static_texture(width0, height0, data0)
         texture_id_1 = dpg.add_static_texture(width1, height1, data1)
         texture_id_2 = dpg.add_static_texture(width2, height2, data2)
         texture_id_3 = dpg.add_static_texture(width3, height3, data3)
-    return [texture_id_0, texture_id_1, texture_id_2, texture_id_3]
+        texture_id_4 = dpg.add_static_texture(width4, height4, data4)
+    return [texture_id_0, texture_id_1, texture_id_2, texture_id_3, texture_id_4]
 
 
 def _help(message):  # to add help tooltip for the last item
@@ -446,15 +448,19 @@ def main():
                             dpg.add_slider_float(label="Brightness",min_value=0.0,max_value=1.0,format='%.2f')
                             with dpg.group(horizontal=True):
                                 with dpg.group():
-                                    dpg.add_text("Light Effect      ")
+                                    t = dpg.add_text("Light Effect      ")
 
                                     dpg.add_radio_button(("all on  ", "pulsing ", "charging","police ","blinking","rainbow"), horizontal=False,
                                                          tag="radioButtonLEDEffect")
+                                    with dpg.tooltip(t):
+                                        dpg.add_image(gui_image[4],width=120*params.scale, height=184*params.scale)
                                 with dpg.group():
-                                    dpg.add_text("Confirm Node:")
+                                    t = dpg.add_text("Confirm Node:")
                                     dpg.bind_item_theme(dpg.last_item(), "themeRed2")
                                     dpg.add_radio_button(("Single ", "Group "),horizontal=False,tag="radioButtonNodeType")
-                                    dpg.add_text("Confirm Function:")
+                                    with dpg.tooltip(t):
+                                        dpg.add_text("Use node selector above for single node,\nto select a group, click Node Group button")
+                                    dpg.add_text("Select Command:")
                                     dpg.bind_item_theme(dpg.last_item(), "themeRed2")
                                     dpg.add_checkbox(label="set Color",tag="chbColor")
                                     dpg.add_checkbox(label="set Brightness", tag="chbBrightness")
@@ -462,7 +468,10 @@ def main():
 
                             dpg.add_spacer(height=10*params.scale)
                             with dpg.group(horizontal=True):
-                                dpg.add_button(label="Group Node",tag="btnGroupNode",callback=btnGroupNode_callback)
+                                t = dpg.add_button(label="Group Node",tag="btnGroupNode",callback=btnGroupNode_callback)
+                                dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+                                with dpg.tooltip(t):
+                                    dpg.add_text("Open a widows to select node group")
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
                                 dpg.add_button(label="Send Command",tag="btnSendCommand")
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
