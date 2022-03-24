@@ -7,6 +7,29 @@ from digi.xbee.models import *
 from net_cfg import *
 from helper_funcs import *
 
+def radioButtonLED1_callback():
+    dpg.set_value("radioButtonLED2", None)
+
+def radioButtonLED2_callback():
+    dpg.set_value("radioButtonLED1", None)
+
+def btnGroupNode_callback():
+    dpg.show_item("winGroupNode")
+
+def btnGroupNodeConfirm_callback():
+    dpg.hide_item("winGroupNode")
+
+def chbGroupNode_callback(sender, app_data, user_data):
+    selected_node = dpg.get_item_user_data("winGroupNode")
+    if app_data:
+        if user_data not in selected_node:
+            selected_node.append(user_data)
+    else:
+        if user_data in selected_node:
+            selected_node.remove(user_data)
+    dpg.set_item_user_data("winGroupNode",selected_node)
+    print(selected_node)
+
 
 def refresh_nodes_temp_table():
     '''
@@ -196,7 +219,6 @@ def coord_data_received_callback(xbee_message):
     data = xbee_message.data.decode("utf8")
     print("Received data from %s: %s" % (addr_64, data))
 
-    # TODO use switch to select which function response this is
     try:
         mes_time = xbee_message.timestamp # returned by time.time(): 1234892919.655932
         data = json.loads(data)

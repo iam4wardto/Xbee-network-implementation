@@ -38,6 +38,7 @@ class params:
 
     # colors
     rgb_red = [255, 0, 0]
+    rgb_red2 = [195, 67, 100]
     rgb_green = [0, 255, 0]
     rgb_green2 = [255, 179, 13]
     rgb_white = [255, 255, 255]
