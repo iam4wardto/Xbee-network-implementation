@@ -108,7 +108,7 @@ def get_temp_callback():
             "category": 0, 1, 2, 3 i.e. device, time, led, info
             "params": same input for this function
             """
-    command_params = {"category": 3, "id": 6, "params": [6, True]}
+    command_params = {"category": 3, "id": 1, "params": [0]} # params 0 for None
     DATA_TO_SEND = json.dumps(command_params)
     for obj in net.nodes_obj:
         if obj.node_xbee.get_node_id() == node_name:
@@ -122,6 +122,33 @@ def get_temp_callback():
     # if not found this node
     net.log.log_error("Internal error, selected node not in the net.")
 
+def get_state_callback():
+    node_name = dpg.get_value("comboNodes")
+    if node_name == None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+    """
+            command list encoded in JSON
+            "category": 0, 1, 2, 3 i.e. device, time, led, info
+            "params": same input for this function
+            """
+    command_params = {"category": 0, "id": 0, "params": [0]} # params 0 for None
+    DATA_TO_SEND = json.dumps(command_params)
+    send_command_to_device(node_name, DATA_TO_SEND,0, 0)
+
+def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
+    for obj in net.nodes_obj:
+        if obj.node_xbee.get_node_id() == node_name:
+            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
+                                                      DATA_TO_SEND)
+            if send_response.transmit_status.description == "Success":
+                net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
+            else:
+                net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
+                                                               send_response.transmit_status.description))
+            return
+    # if not found this node
+    net.log.log_error("Internal error, selected node not in the net.")
 
 def com_radio_button_callback(sender, app_data):
     serial_param.PORT = app_data.partition(':')[0]
@@ -428,20 +455,27 @@ def main():
                                borders_outerV=False, resizable=True, tag="tableNodeInfoAll"):
                     add_column_tableNodeInfoAll()
 
-            with dpg.tab(label="Temperature", tag="tabTemp"):
-                dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
+            with dpg.tab(label="Device Status", tag="tabTemp"):
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
+                    dpg.add_button(label="get status", tag="btnFuncPanelGetStatus", callback=get_state_callback)
+                    dpg.add_button(label="get power", tag="btnFuncPanelGetPower", callback=None)
+
                 dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
+                dpg.bind_item_theme("btnFuncPanelGetStatus", "themeBlue")
+                dpg.bind_item_theme("btnFuncPanelGetPower", "themeBlue")
+
                 with dpg.collapsing_header(label="Nodes Temp", default_open=True):
                     with dpg.table(header_row=True, row_background=False,
                                    borders_innerH=True, borders_outerH=True, borders_innerV=True,
                                    borders_outerV=False, delay_search=True, tag="tableFuncPanelTemps"):
                         dpg.add_table_column(label="Node ID")
                         dpg.add_table_column(label="temperature")
-            with dpg.tab(label="LED Color", tag="tabLEDColor"):
+            with dpg.tab(label="LED Control", tag="tabLEDColor"):
                 with dpg.table(header_row=False, row_background=False,
                             borders_innerH=False, borders_outerH=False, borders_innerV=False,
                             borders_outerV=False, delay_search=True, tag="tableLEDColor"):
-                    dpg.add_table_column(label="")
+                    dpg.add_table_column(label="", width = 220*params.scale,width_fixed=True)
                     dpg.add_table_column(label="")
                     with dpg.table_row():
                         with dpg.group():
@@ -475,6 +509,18 @@ def main():
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
                                 dpg.add_button(label="Send Command",tag="btnSendCommand")
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+
+                        with dpg.group():
+                            with dpg.group(horizontal=True):
+                                dpg.add_spacer(width=90*params.scale)
+                                dpg.add_text("LED Info Table")
+                            with dpg.table(header_row=True, row_background=False,
+                                           borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                                           borders_outerV=False, delay_search=True, tag="tableNodeLEDInfo"):
+                                dpg.add_table_column(label="ID")
+                                dpg.add_table_column(label="Brightness")
+                                dpg.add_table_column(label="Pattern")
+                                dpg.add_table_column(label="Color")
 
 
 
