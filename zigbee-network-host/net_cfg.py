@@ -19,11 +19,11 @@ class params:
         scale = 1
 
     # size of three windows
-    main_width = 900 * scale
+    main_width = 920 * scale
     main_height = 600 * scale
-    logger_width = 500 * scale
+    logger_width = 520 * scale
     logger_height = 250 * scale
-    func_width = 500 * scale
+    func_width = 520 * scale
     func_height = 350 * scale
     coord_pos = [20 * scale, 200 * scale]  # int coord pos in the node editor
     discovery_indicator_x_offset = 80 if hidpi == False else 200
@@ -43,6 +43,13 @@ class params:
     rgb_green2 = [255, 179, 13]
     rgb_white = [255, 255, 255]
     rgb_blue = [0,191,255]
+
+
+    # current command list of host
+    command = [["get_device_state","get_power_info"],
+               ["set_clock_zero"],
+               ["set_all_rgb_colors","set_all_hp_brightness","set_led_programme_effect"],
+               ["get_gravity_vector","get_temperature","get_location"]]
 
 
 # coordinator should be named COORD
@@ -80,6 +87,13 @@ class node_container:
 
     # status check
     handshake_time = None
+
+    # device attribute
+    location = []
+    device_state = 0
+    rgba = []
+    brightness = 1
+    light_effect =0
 
 # instantiate the <network> object
 global net

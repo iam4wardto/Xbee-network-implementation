@@ -7,6 +7,12 @@ from digi.xbee.util import utils
 from gui_callback import *
 from net_cfg import *
 
+def check_response(response,cat,id):
+    if str(response) == "ERROR":
+        net.log.log_error("{} executed failed on end device.".farmat(params.command[cat][id]))
+        return False
+    return True
+
 def hyperlink(text, address):
     b = dpg.add_button(label=text, callback=lambda:webbrowser.open(address))
     dpg.bind_item_theme(b, "__demo_hyperlinkTheme")
