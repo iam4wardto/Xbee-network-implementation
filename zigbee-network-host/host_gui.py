@@ -100,7 +100,7 @@ def _help(message):  # to add help tooltip for the last item
 
 def get_temp_callback():
     node_name = dpg.get_value("comboNodes")
-    if node_name == None:  # user not selected
+    if node_name == 'None':  # user not selected
         net.log.log_error("Please select node first.")
         return
     """
@@ -108,7 +108,7 @@ def get_temp_callback():
             "category": 0, 1, 2, 3 i.e. device, time, led, info
             "params": same input for this function
             """
-    command_params = {"category": 3, "id": 1, "params": [0]} # params 0 for None
+    command_params = [{"category": 3, "id": 1, "params": [0]},{"category": 3, "id": 2, "params": [0]}] # params 0 for None
     DATA_TO_SEND = json.dumps(command_params)
     for obj in net.nodes_obj:
         if obj.node_xbee.get_node_id() == node_name:
@@ -124,7 +124,7 @@ def get_temp_callback():
 
 def get_state_callback():
     node_name = dpg.get_value("comboNodes")
-    if node_name == None:  # user not selected
+    if node_name == 'None':  # user not selected
         net.log.log_error("Please select node first.")
         return
     """
@@ -132,9 +132,23 @@ def get_state_callback():
             "category": 0, 1, 2, 3 i.e. device, time, led, info
             "params": same input for this function
             """
-    command_params = {"category": 0, "id": 0, "params": [0]} # params 0 for None
+    command_params = [{"category": 0, "id": 0, "params": [0]}] # params 0 for None
     DATA_TO_SEND = json.dumps(command_params)
     send_command_to_device(node_name, DATA_TO_SEND,0, 0)
+
+def set_color_callback():
+    target_color = dpg.get_value("colorSelector") # rgba channel
+    #print(target_color)
+    node_name = dpg.get_value("comboNodes")
+    if node_name == 'None':  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    command_params = [{"category": 2, "id": 0, "params":
+        [target_color[0]/255.0,target_color[1]/255.0,target_color[2]/255.0,target_color[3]/255.0]}]
+    DATA_TO_SEND = json.dumps(command_params)
+    send_command_to_device(node_name, DATA_TO_SEND, 2, 0)
+
 
 def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
     for obj in net.nodes_obj:
@@ -446,7 +460,7 @@ def main():
         dpg.add_text("Current selected node:")
         items = ("A", "B", "C",)
         combo_id = dpg.add_combo(items, label="Nodes List", height_mode=dpg.mvComboHeight_Regular, tag="comboNodes")
-        dpg.add_color_edit((195, 67, 100, 255), label="color selector",tag="colorSelector")
+        dpg.add_color_edit((195, 67, 100, 255), label="color selector",tag="colorSelector",callback=None)
         _help("Select color for LED control.")
         with dpg.tab_bar(tag="tabFuncPanel", reorderable=True):
             with dpg.tab(label="Node Info", tag="tabNodeInfo"):
@@ -460,6 +474,7 @@ def main():
                     dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
                     dpg.add_button(label="get status", tag="btnFuncPanelGetStatus", callback=get_state_callback)
                     dpg.add_button(label="get power", tag="btnFuncPanelGetPower", callback=None)
+                    #dpg.add_button(label="set color", tag="btnFuncPanelSetColor", callback=set_color_callback)
 
                 dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelGetStatus", "themeBlue")
@@ -479,7 +494,7 @@ def main():
                     dpg.add_table_column(label="")
                     with dpg.table_row():
                         with dpg.group():
-                            dpg.add_slider_float(label="Brightness",min_value=0.0,max_value=1.0,format='%.2f')
+                            dpg.add_slider_float(label="Brightness",min_value=0.0,max_value=1.0,format='%.2f',tag="sliderBrightness")
                             with dpg.group(horizontal=True):
                                 with dpg.group():
                                     t = dpg.add_text("Light Effect      ")
@@ -491,7 +506,8 @@ def main():
                                 with dpg.group():
                                     t = dpg.add_text("Confirm Node:")
                                     dpg.bind_item_theme(dpg.last_item(), "themeRed2")
-                                    dpg.add_radio_button(("Single ", "Group "),horizontal=False,tag="radioButtonNodeType")
+                                    dpg.add_radio_button(("Single ", "Group "),horizontal=False,
+                                                         tag="radioButtonNodeType",default_value="Single")
                                     with dpg.tooltip(t):
                                         dpg.add_text("Use node selector above for single node,\nto select a group, click Node Group button")
                                     dpg.add_text("Select Command:")
@@ -507,7 +523,7 @@ def main():
                                 with dpg.tooltip(t):
                                     dpg.add_text("Open a widows to select node group")
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
-                                dpg.add_button(label="Send Command",tag="btnSendCommand")
+                                dpg.add_button(label="Send Command",tag="btnSendCommand",callback=btnSendCommand_callback)
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
 
                         with dpg.group():
