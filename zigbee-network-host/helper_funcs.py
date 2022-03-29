@@ -1,3 +1,5 @@
+import json
+
 import dearpygui.dearpygui as dpg
 import webbrowser
 
@@ -7,10 +9,58 @@ from digi.xbee.util import utils
 from gui_callback import *
 from net_cfg import *
 
-def check_response(response,cat,id):
-    if str(response) == "ERROR":
-        net.log.log_error("{} executed failed on end device.".farmat(params.command[cat][id]))
+def check_and_join_msg(message, addr_64):
+    '''
+    used to check integrity of this received msg, if get splitted one, join msg together
+    In our response format, one whole msg should include even number of both '[' and ']'
+    '''
+    message = str(message)
+    incoming_obj = next((obj for obj in net.nodes_obj if obj.node_xbee.get_64bit_addr() == addr_64), None)
+    if not incoming_obj:
+        raise Exception("Internal error, incoming node not found in net.nodes_obj.")
+
+    # this message is full if and only if the 2 conditions are met
+    if message.count('[') == message.count(']') and not incoming_obj.last_msg:
+        return [True, message]
+    else:
+        # splitted msg, we save this one
+        if not incoming_obj.last_msg:
+            # in this case, this is the first splitted msg, we'll wait for another
+            incoming_obj.last_msg = [message]
+            return [False, False]
+        else:
+            msg_to_check = ''.join(incoming_obj.last_msg) + message
+            if check_msg(msg_to_check):
+                # now we get a full response in our format
+                # clear saved msg for this node
+                incoming_obj.last_msg = []
+                print("splitted response joined.")
+                return [True, msg_to_check]
+            else:
+                # still not a full msg if we join them together, save and wait for next
+                incoming_obj.last_msg.append(message)
+                return [False, False]
+
+def check_msg(message):
+    '''
+    only to check integrity of this received msg
+    '''
+    message = str(message)
+    if message.count('[') == message.count(']'):
+        return True
+    else:
         return False
+
+
+def check_response(response,cat,id):
+    '''
+    return command execute status based on the received response
+    '''
+    if str(response) == "ERROR":
+        net.log.log_error("{} executed failed on end device.".format(params.command[cat][id]))
+        return False
+    elif str(response) == "SUCCESS":
+        net.log.log_debug("{} executed successful.".format(params.command[cat][id]))
     return True
 
 def hyperlink(text, address):
@@ -320,3 +370,13 @@ def refresh_node_info_and_add_to_main_windows():
     # also refresh nodes in the list box "comboNodes", save id to the net object
     net.nodes_id = [node.get_node_id() for node in net.nodes]  # e.g. ['router1' 'router2']
     dpg.configure_item("comboNodes", items=net.nodes_id + ["All Nodes"])
+
+'''
+res_test = str([{"category":2,"id":0,"response":["test"]},{"category":2,"id":1,"response":["test"]}])
+print(res_test)
+res_test = res_test.replace("'", '"')
+
+res_eles = json.loads(res_test)
+
+#for response in res_eles:
+#    print(response["category"])'''

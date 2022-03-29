@@ -51,6 +51,9 @@ class params:
                ["set_all_rgb_colors","set_all_hp_brightness","set_led_programme_effect"],
                ["get_gravity_vector","get_temperature","get_location"]]
 
+    # debug
+    test_mode = True
+
 
 # coordinator should be named COORD
 # adjust all gui params here...
@@ -94,6 +97,7 @@ class node_container:
     rgba = []
     brightness = 1
     light_effect =0
+    last_msg = [] # when check integrity, used if need to put splitted msg together
 
 # instantiate the <network> object
 global net
