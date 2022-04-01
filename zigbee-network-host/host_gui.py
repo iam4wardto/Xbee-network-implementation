@@ -100,7 +100,7 @@ def _help(message):  # to add help tooltip for the last item
 
 def get_temp_callback():
     node_name = dpg.get_value("comboNodes")
-    if node_name == 'None':  # user not selected
+    if node_name == 'None' or node_name is None:  # user not selected
         net.log.log_error("Please select node first.")
         return
     """
@@ -108,16 +108,26 @@ def get_temp_callback():
             "category": 0, 1, 2, 3 i.e. device, time, led, info
             "params": same input for this function
             """
-    command_params = [{"category": 3, "id": 1, "params": [0]}] # params 0 for None, 40 bytes in total
-    DATA_TO_SEND = json.dumps(command_params)
-    send_command_to_device(node_name, DATA_TO_SEND, 3, 1)
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    for target_node in target_nodes:
+        command_params = [{"category": 3, "id": 1, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 3, 1)
 
 
 def latency_test_callback():
     node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name == None:
+    if node_name == 'None' or node_name is None:
         net.log.log_debug("Please select a node to start latency test!")
         return
+    elif node_name == "All Nodes":
+        net.log.log_debug("Please select a single node for payload test!")
+        return
+
     num_msg = 10
     logging.basicConfig(filename="log.txt", filemode='a',
                         level=logging.INFO, format="%(asctime)s %(message)s")
@@ -140,8 +150,11 @@ def latency_test_callback():
 def payload_test_callback():
 
     node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name == None:
+    if node_name == 'None' or node_name is None:
         net.log.log_debug("Please select a node to start payload test!")
+        return
+    elif node_name == "All Nodes":
+        net.log.log_debug("Please select a single node for payload test!")
         return
 
     num_set = params.groups_payload_test
@@ -175,23 +188,59 @@ def payload_test_callback():
 
 def get_state_callback():
     node_name = dpg.get_value("comboNodes")
-    if node_name == 'None':  # user not selected
+    if node_name == 'None' or node_name is None:  # user not selected
         net.log.log_error("Please select node first.")
         return
-    """
-            command list encoded in JSON
-            "category": 0, 1, 2, 3 i.e. device, time, led, info
-            "params": same input for this function
-            """
-    command_params = [{"category": 0, "id": 0, "params": [0]}] # params 0 for None
-    DATA_TO_SEND = json.dumps(command_params)
-    send_command_to_device(node_name, DATA_TO_SEND, 0, 0)
+
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    for target_node in target_nodes:
+        command_params = [{"category": 0, "id": 0, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 0, 0)
+
+def get_power_callback():
+    node_name = dpg.get_value("comboNodes")
+    if node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    for target_node in target_nodes:
+        command_params = [{"category": 0, "id": 1, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 0, 1)
+
+
+def sync_clock_callback():
+    node_name = dpg.get_value("comboNodes")
+    if node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    for target_node in target_nodes:
+        command_params = [{"category": 1, "id": 0, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 1, 0)
+
 
 def set_color_callback():
     target_color = dpg.get_value("colorSelector") # rgba channel
     #print(target_color)
     node_name = dpg.get_value("comboNodes")
-    if node_name == 'None':  # user not selected
+    if node_name == 'None' or node_name == None:  # user not selected
         net.log.log_error("Please select node first.")
         return
 
@@ -515,14 +564,15 @@ def main():
 
             with dpg.tab(label="Device Status", tag="tabTemp"):
                 with dpg.group(horizontal=True):
-                    dpg.add_button(label="get temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
-                    dpg.add_button(label="get status", tag="btnFuncPanelGetStatus", callback=get_state_callback)
-                    dpg.add_button(label="get power", tag="btnFuncPanelGetPower", callback=None)
-                    #dpg.add_button(label="set color", tag="btnFuncPanelSetColor", callback=set_color_callback)
+                    dpg.add_button(label="get Temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
+                    dpg.add_button(label="get Status", tag="btnFuncPanelGetStatus", callback=get_state_callback)
+                    dpg.add_button(label="get Power", tag="btnFuncPanelGetPower", callback=get_power_callback)
+                    dpg.add_button(label="sync Clock", tag="btnFuncPanelSyncClock", callback=sync_clock_callback)
 
                 dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelGetStatus", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelGetPower", "themeBlue")
+                dpg.bind_item_theme("btnFuncPanelSyncClock", "themeBlue")
 
                 with dpg.collapsing_header(label="Nodes Temp", default_open=True):
                     with dpg.table(header_row=True, row_background=False,
@@ -624,6 +674,8 @@ def main():
             dpg.add_table_column(label="")
 
             nodes_list = dpg.get_item_configuration("comboNodes")['items']
+            if "All Nodes" in nodes_list:
+                nodes_list.remove("All Nodes")
             row_num = math.ceil(len(nodes_list)/3)
             for i in range(row_num):
                 with dpg.table_row():

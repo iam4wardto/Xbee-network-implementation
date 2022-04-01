@@ -51,8 +51,10 @@ class params:
                ["set_all_rgb_colors","set_all_hp_brightness","set_led_programme_effect"],
                ["get_gravity_vector","get_temperature","get_location"]]
 
+    device_state = ["Normal","Energy_Saving","Sleep","Off","Overheating","Error"]
+
     # test
-    test_mode = True
+    test_mode = False
     # the maximum payload size for api frame is 255 bytes, we test 6*40 bytes
     groups_payload_test = 9
 
@@ -77,6 +79,11 @@ class network:
     last_command_time = None # used for latency test
     latest_latency = 0
 
+    # setting
+    enable_nodes_cache_check = False
+    # there's ghost cache in the net, when a node left, it can be still discovered for a short while
+    # here we check, if cached, node_id returns None
+
 
 class node_container:
     '''
@@ -96,11 +103,18 @@ class node_container:
 
     # device attribute
     location = []
-    device_state = 0
+    device_state = None
+    IMU_state = None
+    GPS_state = None
+    BLE_state = None
+
     rgba = []
     brightness = 1
     light_effect =0
     last_msg = [] # when check integrity, used if need to put splitted msg together
+
+    voltage = None
+    current_draw = None
 
 # instantiate the <network> object
 global net
