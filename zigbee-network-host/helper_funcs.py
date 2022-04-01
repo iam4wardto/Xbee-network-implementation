@@ -8,6 +8,7 @@ from digi.xbee.models.mode import OperatingMode
 from digi.xbee.util import utils
 from gui_callback import *
 from net_cfg import *
+import logging
 
 def check_and_join_msg(message, addr_64):
     '''
@@ -351,32 +352,37 @@ def refresh_node_info_and_add_to_main_windows():
     dpg.add_table_column(label="links", parent="tableLinks")
     dpg.add_table_column(label="LQI index           ", parent="tableLinks",width=100*params.scale, width_fixed=True)
 
-    for connect in net.connections:
-        # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing
-        if connect.node_a.get_role().id == 0: # implicitly check if 'COORDINATOR'
-            text_a = 'output'
-            text_b = 'input'
-        else:
-            text_a = 'input'
-            text_b = 'output'
-        # draw links in the graph view
-        dpg.add_node_link('-'.join([connect.node_a.get_node_id(), text_a]),
-                          '-'.join([connect.node_b.get_node_id(), text_b]), parent="nodeEditor")
-        # add/refresh links to the list view
-        with dpg.table_row(parent="tableLinks"):
-            dpg.add_text("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
-            dpg.add_text("{}/{}".format(connect.lq_a2b.lq, connect.lq_b2a.lq))
+    try:
+        for connect in net.connections:
+            print("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
+
+            # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing
+            if connect.node_a.get_role().id == 0: # implicitly check if 'COORDINATOR'
+                text_a = 'output'
+                text_b = 'input'
+            else:
+                text_a = 'input'
+                text_b = 'output'
+            # draw links in the graph view
+            dpg.add_node_link('-'.join([connect.node_a.get_node_id(), text_a]),
+                              '-'.join([connect.node_b.get_node_id(), text_b]), parent="nodeEditor")
+            # add/refresh links to the list view
+
+            with dpg.table_row(parent="tableLinks"):
+                dpg.add_text("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
+                dpg.add_text("{}/{}".format(connect.lq_a2b.lq, connect.lq_b2a.lq))
+    except Exception as err:
+        print(err)
 
     # also refresh nodes in the list box "comboNodes", save id to the net object
     net.nodes_id = [node.get_node_id() for node in net.nodes]  # e.g. ['router1' 'router2']
     dpg.configure_item("comboNodes", items=net.nodes_id + ["All Nodes"])
 
-'''
-res_test = str([{"category":2,"id":0,"response":["test"]},{"category":2,"id":1,"response":["test"]}])
-print(res_test)
-res_test = res_test.replace("'", '"')
+logging.basicConfig(filename="log.txt", filemode='a',
+                        level=logging.INFO, format="%(asctime)s %(message)s")
+logging.info("\n")
+logging.info("environment: staircase - with 0 node between - in a chain")
 
-res_eles = json.loads(res_test)
 
-#for response in res_eles:
-#    print(response["category"])'''
+
+

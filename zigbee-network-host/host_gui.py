@@ -108,19 +108,70 @@ def get_temp_callback():
             "category": 0, 1, 2, 3 i.e. device, time, led, info
             "params": same input for this function
             """
-    command_params = [{"category": 3, "id": 1, "params": [0]},{"category": 3, "id": 2, "params": [0]}] # params 0 for None
+    command_params = [{"category": 3, "id": 1, "params": [0]}] # params 0 for None, 40 bytes in total
     DATA_TO_SEND = json.dumps(command_params)
-    for obj in net.nodes_obj:
-        if obj.node_xbee.get_node_id() == node_name:
-            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
-                                                      DATA_TO_SEND)
-            if send_response.transmit_status.description == "Success":
-                net.log.log_info("[transmit {}.get_temp {}]".format(node_name, "Success"))
-            else:
-                net.log.log_error("[transmit {}.get_temp {}]".format(node_name, send_response.transmit_status.description))
-            return
-    # if not found this node
-    net.log.log_error("Internal error, selected node not in the net.")
+    send_command_to_device(node_name, DATA_TO_SEND, 3, 1)
+
+
+def latency_test_callback():
+    node_name = dpg.get_value("comboNodes")
+    if node_name == 'None' or node_name == None:
+        net.log.log_debug("Please select a node to start latency test!")
+        return
+    num_msg = 10
+    logging.basicConfig(filename="log.txt", filemode='a',
+                        level=logging.INFO, format="%(asctime)s %(message)s")
+    logging.info("\n")
+    logging.info("*** latency test start ***")
+    print("*** latency test start ***")
+
+    for i in range(num_msg):
+
+        command_params = [{"category":3, "id":1}] #24 bytes
+        DATA_TO_SEND = json.dumps(command_params)
+
+        send_command_to_device(node_name, DATA_TO_SEND, 3, 1)
+        time.sleep(2.2) # should leave enough time for one response
+
+    logging.info("*** latency test success ***")
+    print("*** latency test success ***")
+
+
+def payload_test_callback():
+
+    node_name = dpg.get_value("comboNodes")
+    if node_name == 'None' or node_name == None:
+        net.log.log_debug("Please select a node to start payload test!")
+        return
+
+    num_set = params.groups_payload_test
+    logging.basicConfig(filename="log.txt", filemode='a',
+                        level=logging.INFO, format="%(asctime)s %(message)s")
+    logging.info("\n")
+    logging.info("*** payload test start ***")
+    print("*** payload test start ***")
+
+    #element = {"category": 3, "id": 1, "params": [0]} # 40 bytes in total, can use 6 groups
+    element = [{"category":3, "id":1}] # 24 bytes, add 2 bytes when in json, in total we test 9 group
+
+    for i in range(num_set):
+
+        command_params = [{"category":3, "id":1}]
+
+        # add payload acoording to group
+        for j in range(i):
+            command_params.append(element)
+        DATA_TO_SEND = json.dumps(command_params)
+
+        logging.info("group {} of payload test".format(i+1))
+        print("group {} of payload test".format(i+1))
+        for k in range(10):
+            send_command_to_device(node_name, DATA_TO_SEND, 3, 1)
+            time.sleep(2.5) # should leave enough time for one response
+
+    logging.info("*** payload test success ***")
+    print("*** payload test success ***")
+
 
 def get_state_callback():
     node_name = dpg.get_value("comboNodes")
@@ -134,7 +185,7 @@ def get_state_callback():
             """
     command_params = [{"category": 0, "id": 0, "params": [0]}] # params 0 for None
     DATA_TO_SEND = json.dumps(command_params)
-    send_command_to_device(node_name, DATA_TO_SEND,0, 0)
+    send_command_to_device(node_name, DATA_TO_SEND, 0, 0)
 
 def set_color_callback():
     target_color = dpg.get_value("colorSelector") # rgba channel
@@ -149,20 +200,6 @@ def set_color_callback():
     DATA_TO_SEND = json.dumps(command_params)
     send_command_to_device(node_name, DATA_TO_SEND, 2, 0)
 
-
-def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
-    for obj in net.nodes_obj:
-        if obj.node_xbee.get_node_id() == node_name:
-            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
-                                                      DATA_TO_SEND)
-            if send_response.transmit_status.description == "Success":
-                net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
-            else:
-                net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
-                                                               send_response.transmit_status.description))
-            return
-    # if not found this node
-    net.log.log_error("Internal error, selected node not in the net.")
 
 def com_radio_button_callback(sender, app_data):
     serial_param.PORT = app_data.partition(':')[0]
@@ -205,7 +242,7 @@ def exit_callback():
         if net.coord is not None and net.coord.is_open():
             net.coord.close()
             print("COORD closed")
-        dpg.show_item("winExitConfirm")
+        #dpg.show_item("winExitConfirm")
     except:
         pass  # not relevant here
 
@@ -399,6 +436,13 @@ def main():
             with dpg.group(horizontal=True):
                 dpg.add_button(label="Maximize", tag="btnMaxNodeView", callback=max_node_view_callback)
                 dpg.add_button(label="Refresh", tag="btnRefreshAllNet", callback=btnRefresh_callback)
+                if params.test_mode:
+                    dpg.add_button(label="Disconnect", tag="btnDisconnectCoord", callback=btnDisconnectCoord_callback)
+                    dpg.bind_item_theme("btnDisconnectCoord", "themeBlue")
+                    dpg.add_button(label="Payload test", tag="btnPayloadTest", callback=payload_test_callback)
+                    dpg.bind_item_theme("btnPayloadTest", "themeBlue")
+                    dpg.add_button(label="Latency test", tag="btnLatencyTest", callback=latency_test_callback)
+                    dpg.bind_item_theme("btnLatencyTest", "themeBlue")
                 dpg.bind_item_theme("btnMaxNodeView", "themeBlue")
                 dpg.bind_item_theme("btnRefreshAllNet", "themeBlue")
                 with dpg.tooltip("btnRefreshAllNet"):
@@ -541,12 +585,13 @@ def main():
 
 
             with dpg.tab(label="Location", tag="tabLocation"):
-                map_url = generate_map_url()
+                '''map_url = generate_map_url()
                 urllib.request.urlretrieve(map_url, "./figure/map.png")
                 width, height, channels, data = dpg.load_image("./figure/map.png")
                 with dpg.texture_registry():
                     texture_map = dpg.add_static_texture(width, height, data)
-                dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width / 2))
+                dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width / 2))'''
+                pass
 
     # put this windows at last, o.t.w. "modal" doesn't work
     with dpg.window(label="Welcome", tag="winWelcome", autosize=True, pos=params.winWelcome_pos, modal=False,
