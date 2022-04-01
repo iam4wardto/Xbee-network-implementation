@@ -51,9 +51,10 @@ class params:
                ["set_all_rgb_colors","set_all_hp_brightness","set_led_programme_effect"],
                ["get_gravity_vector","get_temperature","get_location"]]
 
-    # debug
+    # test
     test_mode = True
-
+    # the maximum payload size for api frame is 255 bytes, we test 6*40 bytes
+    groups_payload_test = 9
 
 # coordinator should be named COORD
 # adjust all gui params here...
@@ -73,6 +74,8 @@ class network:
 
     # logger
     log = None
+    last_command_time = None # used for latency test
+    latest_latency = 0
 
 
 class node_container:

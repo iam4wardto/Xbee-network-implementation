@@ -2,6 +2,7 @@ import json
 import time
 import dearpygui.dearpygui as dpg
 import math
+import logging
 
 from dearpygui_ext import logger
 from digi.xbee.devices import *
@@ -9,6 +10,12 @@ from digi.xbee.models import *
 from net_cfg import *
 from helper_funcs import *
 
+
+def btnDisconnectCoord_callback():
+    if net.coord is not None and net.coord.is_open():
+        net.coord.close()
+        net.log.log_debug("COORD disconnected, need refresh before next use!")
+        print("COORD disconnected, please refresh before next use")
 
 def radioButtonLED1_callback():
     dpg.set_value("radioButtonLED2", None)
@@ -90,6 +97,7 @@ def btnSendCommand_callback():
                     send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(),
                                                               obj.node_xbee.get_16bit_addr(),
                                                               DATA_TO_SEND)
+                    net.last_command_time = time.time()
                     if send_response.transmit_status.description == "Success":
                         net.log.log_info(
                             "[transmit {} to {} {}]".format(command_names, node_id, "Success"))
@@ -97,6 +105,21 @@ def btnSendCommand_callback():
                         net.log.log_error("[transmit {} to {} {}]".format(command_names, node_id,
                                                                        send_response.transmit_status.description))
 
+
+def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
+    for obj in net.nodes_obj:
+        if obj.node_xbee.get_node_id() == node_name:
+            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
+                                                      DATA_TO_SEND)
+            net.last_command_time = time.time() # log command sent time
+            if send_response.transmit_status.description == "Success":
+                net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
+            else:
+                net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
+                                                               send_response.transmit_status.description))
+            return
+    # if not found this node
+    net.log.log_error("Internal error, selected node not in the net.")
 
 
 def chbGroupNode_callback(sender, app_data, user_data):
@@ -240,20 +263,8 @@ def btnOpenPort_callback(sender, app_data, user_data):
         dpg.set_value("portOpenMsg", "Success, starting...")
         dpg.bind_item_theme("portOpenMsg", "themeGreen")
 
-        # continue scanning...
-        net.xbee_network = net.coord.get_network()
-        # Configure the discovery options.
-        net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.FLOOD,
-                                                    del_not_discovered_nodes_in_last_scan=True)  # CASCADE
-        net.xbee_network.set_deep_discovery_timeouts(node_timeout=8, time_bw_requests=5, time_bw_scans=5)
-        net.xbee_network.clear()
-
-        # add network callback
-        net.xbee_network.add_device_discovered_callback(callback_device_discovered)
-        net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
-        # net.xbee_network.add_network_modified_callback(cb_network_modified)
-        net.coord.add_data_received_callback(coord_data_received_callback)
-        net.coord.add_io_sample_received_callback(io_samples_callback)
+        init_xbee_network()
+        init_network_callback()
 
         time.sleep(0.5)
         dpg.hide_item("winWelcome")
@@ -277,9 +288,33 @@ def btnOpenPort_callback(sender, app_data, user_data):
         dpg.set_value("portOpenMsg", "Failed, check again")
         dpg.bind_item_theme("portOpenMsg", "themeRed")
 
+def init_xbee_network():
+    net.xbee_network = net.coord.get_network()
+    # Configure the discovery options.
+    net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.FLOOD,
+                                                del_not_discovered_nodes_in_last_scan=True)  # CASCADE
+    net.xbee_network.set_deep_discovery_timeouts(node_timeout=8, time_bw_requests=5, time_bw_scans=5)
+    net.xbee_network.clear()
+
+def init_network_callback():
+    # add network callback
+    net.xbee_network.add_device_discovered_callback(callback_device_discovered)
+    net.xbee_network.add_discovery_process_finished_callback(callback_discovery_finished)
+    # net.xbee_network.add_network_modified_callback(cb_network_modified)
+    net.coord.add_data_received_callback(coord_data_received_callback)
+    net.coord.add_io_sample_received_callback(io_samples_callback)
 
 def btnRefresh_callback(sender, app_data, user_data):
-    net.xbee_network.clear()
+
+    if not net.coord.is_open():
+        net.coord = ZigBeeDevice(serial_param.PORT, serial_param.BAUD_RATE)
+        net.coord.open()
+        net.log.log_debug("COORD opened.")
+        print("COORD opened.")
+
+    init_xbee_network()
+    init_network_callback()
+
     net.xbee_network.start_discovery_process(deep=True, n_deep_scans=1)
     print("Discovering remote XBee devices...")
     net.log.log_info("Discovering remote XBee devices...")
@@ -297,6 +332,15 @@ def btnRefresh_callback(sender, app_data, user_data):
 # Callback for coord when receive data
 def coord_data_received_callback(xbee_message):
     mes_time = xbee_message.timestamp  # returned by time.time(): 1234892919.655932
+
+    if params.test_mode:
+        if net.last_command_time is not None:
+            net.latest_latency = round(mes_time - net.last_command_time,3)
+        print("latest_latency: ",net.latest_latency,'s')
+        logging.basicConfig(filename="log.txt", filemode='a',
+                            level=logging.INFO, format="%(asctime)s %(message)s")
+        logging.info("latest_latency: {}s".format(net.latest_latency))
+
     addr_64 = xbee_message.remote_device.get_64bit_addr()
     node_name = None
     try:
