@@ -32,6 +32,8 @@ def btnGroupNode_callback():
     dpg.add_table_column(label="", parent="tableGroupNode")
 
     nodes_list = dpg.get_item_configuration("comboNodes")['items']
+    if "All Nodes" in nodes_list:
+        nodes_list.remove("All Nodes")
     row_num = math.ceil(len(nodes_list) / 3)
     for i in range(row_num):
         with dpg.table_row(parent="tableGroupNode"):
@@ -52,74 +54,66 @@ def btnGroupNodeConfirm_callback():
 
 def btnSendCommand_callback():
     selected_node_id = dpg.get_item_user_data("winGroupNode")
+
+    # select 'Group' as destination & not valid
     if (not selected_node_id) and (dpg.get_value("radioButtonNodeType")[0] == 'G'):
         net.log.log_debug("Please use Group Node button first.")
         return
+    # select 'Single' as destination & not valid
     elif (dpg.get_value("radioButtonNodeType")[0] == 'S') and (dpg.get_value("comboNodes") == 'None'):
         net.log.log_debug("Please use select node first.")
         return
-    elif dpg.get_value("radioButtonNodeType")[0] == 'S':  # select single & valid
+    # select single & valid
+    elif dpg.get_value("radioButtonNodeType")[0] == 'S':
         selected_node_id = [dpg.get_value("comboNodes")]
 
+    for node_id in selected_node_id:
+        # "All Nodes" appear only when select single
+        if node_id == "All Nodes":
+            for obj in net.nodes_obj:
+                read_command_and_send(obj,node_id)
+        else:
+            for obj in net.nodes_obj:
+                if obj.node_xbee.get_node_id() == node_id:  # find this node
+                    read_command_and_send(obj,node_id)
 
+def read_command_and_send(obj,node_id):
     target_color = dpg.get_value("colorSelector")  # rgba channel
     target_color = [round(channel / 255.0, 2) for channel in target_color]
     command_params_1 = {"category": 2, "id": 0, "params": target_color}
 
     target_bright = dpg.get_value("sliderBrightness")
-    #print("sliderBrightness: ", round(target_bright, 2))
+    # print("sliderBrightness: ", round(target_bright, 2))
     command_params_2 = {"category": 2, "id": 1, "params": [round(target_bright, 2)]}
 
     command_params_3 = {"category": 2, "id": 2, "params": [5]}
 
-    for node_id in selected_node_id:
-        if node_id == "All Nodes":
-            pass
-        else:
-            for obj in net.nodes_obj:
-                if obj.node_xbee.get_node_id() == node_id:  # find this node
-                    command_string = []
-                    command_names = []
-                    if dpg.get_value("chbColor"):
-                        command_string.append(command_params_1)
-                        command_names.append(params.command[2][0])
+    command_string = []
+    command_names = []
+    if dpg.get_value("chbColor"):
+        command_string.append(command_params_1)
+        command_names.append(params.command[2][0])
 
-                    if dpg.get_value("chbBrightness"):
-                        command_string.append(command_params_2)
-                        command_names.append(params.command[2][1])
+    if dpg.get_value("chbBrightness"):
+        command_string.append(command_params_2)
+        command_names.append(params.command[2][1])
 
-                    if dpg.get_value("chbEffect"):
-                        command_string.append(command_params_3)
-                        command_names.append(params.command[2][2])
+    if dpg.get_value("chbEffect"):
+        command_string.append(command_params_3)
+        command_names.append(params.command[2][2])
 
-                    #print(command_string)
-                    DATA_TO_SEND = json.dumps(command_string)
-                    send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(),
-                                                              obj.node_xbee.get_16bit_addr(),
-                                                              DATA_TO_SEND)
-                    net.last_command_time = time.time()
-                    if send_response.transmit_status.description == "Success":
-                        net.log.log_info(
-                            "[transmit {} to {} {}]".format(command_names, node_id, "Success"))
-                    else:
-                        net.log.log_error("[transmit {} to {} {}]".format(command_names, node_id,
-                                                                       send_response.transmit_status.description))
-
-
-def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
-    for obj in net.nodes_obj:
-        if obj.node_xbee.get_node_id() == node_name:
-            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
-                                                      DATA_TO_SEND)
-            net.last_command_time = time.time() # log command sent time
-            if send_response.transmit_status.description == "Success":
-                net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
-            else:
-                net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
-                                                               send_response.transmit_status.description))
-            return
-    # if not found this node
-    net.log.log_error("Internal error, selected node not in the net.")
+    # print(command_string)
+    DATA_TO_SEND = json.dumps(command_string)
+    send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(),
+                                              obj.node_xbee.get_16bit_addr(),
+                                              DATA_TO_SEND)
+    net.last_command_time = time.time()
+    if send_response.transmit_status.description == "Success":
+        net.log.log_info(
+            "[transmit {} to {} {}]".format(command_names, node_id, "Success"))
+    else:
+        net.log.log_error("[transmit {} to {} {}]".format(command_names, node_id,
+                                                          send_response.transmit_status.description))
 
 
 def chbGroupNode_callback(sender, app_data, user_data):
@@ -186,9 +180,11 @@ def refresh_available_nodes():
     # refresh available nodes when status changed
     net.available_nodes = [obj.node_xbee for obj in net.nodes_obj if obj.is_available == True]
     net.available_nodes_id = [node.get_node_id() for node in net.available_nodes]
-    if dpg.get_value("comboNodes") not in net.available_nodes_id:
-        dpg.set_value("comboNodes", None)
+    if dpg.get_value("comboNodes") != "All Nodes":
+        if dpg.get_value("comboNodes") not in net.available_nodes_id:
+            dpg.set_value("comboNodes", None)
     dpg.configure_item("comboNodes", items=net.available_nodes_id + ["All Nodes"])
+    print("available: ", net.available_nodes_id)
 
 
 def check_node_handshake_time():
@@ -277,6 +273,7 @@ def btnOpenPort_callback(sender, app_data, user_data):
         while net.xbee_network.is_discovery_running():
             dpg.show_item("winLoadingIndicator")
         net.nodes = net.xbee_network.get_devices()
+        print("total nodes in net: {}".format(len(net.nodes)))
         net.connections = net.xbee_network.get_connections()
         dpg.hide_item("winLoadingIndicator")
         refresh_node_info_and_add_to_main_windows()  # then we have net.nodes_obj
@@ -288,12 +285,13 @@ def btnOpenPort_callback(sender, app_data, user_data):
         dpg.set_value("portOpenMsg", "Failed, check again")
         dpg.bind_item_theme("portOpenMsg", "themeRed")
 
+
 def init_xbee_network():
     net.xbee_network = net.coord.get_network()
     # Configure the discovery options.
-    net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.FLOOD,
-                                                del_not_discovered_nodes_in_last_scan=True)  # CASCADE
-    net.xbee_network.set_deep_discovery_timeouts(node_timeout=8, time_bw_requests=5, time_bw_scans=5)
+    net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE,
+                                                del_not_discovered_nodes_in_last_scan=True)  # CASCADE or FLOOD
+    net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5, time_bw_scans=5)
     net.xbee_network.clear()
 
 def init_network_callback():
@@ -360,29 +358,43 @@ def coord_data_received_callback(xbee_message):
 
             except Exception as err:  # other api frames, not in our response format, ignore here
                 print(err)
-                pass
 
             else:  # full msg and json decode success, then action
-                for response in data_eles:
+                for data in data_eles:
                     #print(response["category"])
-                    pass
 
-                '''
-                if data.get("category") == -1:  # device power-on event
-                    net.log.log_info("[Device {} power on.]".format(node_name))
-                elif data.get("category") == 0:
-                    if data.get("id") == 0:  # returned state
-                        print(str(data.get("response")[0]))
-                elif data.get("category") == 2:
-                    if data.get("id") == 0:  # returned set color response
-                        check_response(data.get("response")[0], 2, 0)
-                    elif data.get("id") == 1:
-                        check_response(data.get("response")[0], 2, 1)
-                elif data.get("category") == 3:
-                    if data.get("id") == 1:  # returned temperature
-                        for obj in net.nodes_obj:
-                            if obj.node_xbee.get_64bit_addr() == addr_64:  # for this node
-        
+                    if data.get("category") == -1:  # device power-on event
+                        net.log.log_info("[Device {} power on.]".format(node_name))
+
+                    else:
+                        obj = find_node_obj_by_addr64(addr_64)
+                        # we find node by addr64 after the power on msg, in case this is new node
+
+                        if data.get("category") == 0:
+                            if data.get("id") == 0:  # returned device state
+                                #print(str(data.get("response")[0]))
+                                obj.device_state = params.device_state[data.get("response")[0]]
+                                obj.IMU_state = data.get("response")[1]
+                                obj.GPS_state = data.get("response")[2]
+                                obj.BLE_state = data.get("response")[3]
+                            if data.get("id") == 1:  # returned power info
+                                obj.voltage = round(data.get("response")[0],2)
+                                obj.current_draw = round(data.get("response")[1],2)
+
+                        elif data.get("category") == 1:
+                            pass
+
+                        elif data.get("category") == 2:
+                            if data.get("id") == 0:   # returned set color response
+                                check_response(data.get("response")[0], 2, 0)
+                            elif data.get("id") == 1: # returned set brightness response
+                                check_response(data.get("response")[0], 2, 1)
+                            elif data.get("id") == 2: # returned set effect response
+                                check_response(data.get("response")[0], 2, 2)
+
+
+                        elif data.get("category") == 3:
+                            if data.get("id") == 1:   # returned temperature
                                 if check_response(data.get("response")[0], 3, 1):
                                     obj.temperature = str(data.get("response")[0])
-                        refresh_nodes_temp_table()'''
+                                refresh_nodes_temp_table()

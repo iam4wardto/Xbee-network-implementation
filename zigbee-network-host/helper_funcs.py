@@ -1,4 +1,5 @@
 import json
+import time
 
 import dearpygui.dearpygui as dpg
 import webbrowser
@@ -9,6 +10,10 @@ from digi.xbee.util import utils
 from gui_callback import *
 from net_cfg import *
 import logging
+
+def find_node_obj_by_addr64(addr_64):
+    target = next((obj for obj in net.nodes_obj if obj.node_xbee.get_64bit_addr() == addr_64))
+    return target
 
 def check_and_join_msg(message, addr_64):
     '''
@@ -186,6 +191,22 @@ def init_nodes_temp_table():
             dpg.add_text("n/a")
 
 
+def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
+    for obj in net.nodes_obj:
+        if obj.node_xbee.get_node_id() == node_name:
+            send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
+                                                      DATA_TO_SEND)
+            net.last_command_time = time.time() # log command sent time
+            if send_response.transmit_status.description == "Success":
+                net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
+            else:
+                net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
+                                                               send_response.transmit_status.description))
+            return
+    # if not found this node
+    net.log.log_error("Internal error, selected node not in the net.")
+
+
 def select_node_callback():
     # there's no node clicked callback... so attach this to mouse-click handler
     node_selected = dpg.get_selected_nodes("nodeEditor")
@@ -197,44 +218,47 @@ def select_node_callback():
         node_obj = None
         if dpg.get_item_label(node_selected[0]) == net.coord.get_node_id():
             node_tmp = net.coord
+            is_coord = True
         else:
+            is_coord = False
             for obj in net.nodes_obj:
                 if dpg.get_item_label(node_selected[0]) == obj.node_xbee.get_node_id():
                     node_tmp = obj.node_xbee
                     node_obj = obj
-        with dpg.table_row(parent="tableNodeInfoAll"):
+        with dpg.table_row(parent="tableNodeInfoAll",tag="rowNodeInfoAll1"):
             dpg.add_text("net role")
             dpg.add_text(node_tmp.get_role().description)
-            dpg.add_text("ball type")
-        with dpg.table_row(parent="tableNodeInfoAll"):
+            dpg.add_text("device state")
+        with dpg.table_row(parent="tableNodeInfoAll",tag="rowNodeInfoAll2"):
             dpg.add_text("protocol")
             dpg.add_text(node_tmp.get_protocol().description)
-            dpg.add_text("led type")
+            dpg.add_text("IMU_state")
         try:
-            with dpg.table_row(parent="tableNodeInfoAll"):
+            with dpg.table_row(parent="tableNodeInfoAll",tag="rowNodeInfoAll3"):
                 dpg.add_text("operating mode")
                 mode_tmp = int.from_bytes(node_tmp.get_parameter("AP"),'little')
                 for mode in OperatingMode:
                     if mode.code == mode_tmp:
                         mode_des = mode.description
                 dpg.add_text(mode_des)
-                dpg.add_text("led status")
+
+                dpg.add_text("GPS_state")
         except:
             # if error, doesn't need to execute following part
             net.log.log_debug("Timeout getting {} info.".format(dpg.get_item_label(node_selected[0])))
         else:
-            with dpg.table_row(parent="tableNodeInfoAll"):
+            with dpg.table_row(parent="tableNodeInfoAll",tag="rowNodeInfoAll4"):
                 dpg.add_text("firmware version")
                 dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("VR")))
-                dpg.add_text("device attitude")
-            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("BLE_state")
+            with dpg.table_row(parent="tableNodeInfoAll",tag="rowNodeInfoAll5"):
                 dpg.add_text("hardware version")
                 dpg.add_text(''.join('{:02X}'.format(x) for x in node_tmp.get_parameter("HV")))
-                dpg.add_text("battery")
-            with dpg.table_row(parent="tableNodeInfoAll"):
+                dpg.add_text("battery voltage")
+            with dpg.table_row(parent="tableNodeInfoAll",tag="rowNodeInfoAll6"):
                 dpg.add_text("power level")
                 dpg.add_text(node_tmp.get_power_level().description)
-                dpg.add_text("temperature")
+                dpg.add_text("current draw")
             with dpg.table_row(parent="tableNodeInfoAll"):
                 dpg.add_text("temperature")
                 # byte array to hex string, then to string, e.g. 0987 mv, then to int, then to str
@@ -250,14 +274,37 @@ def select_node_callback():
                     if node_obj.handshake_time is None:
                         dpg.add_text("None")
                     else:
-                        dpg.add_text(time.ctime(node_obj.handshake_time).split(' ')[3])
+                        format_time = time.gmtime(node_obj.handshake_time)
+                        dpg.add_text("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
+
+            if not is_coord:
+                if node_obj.device_state is None or node_obj.voltage is None:
+                    # we send command to get info
+                    node_name = node_tmp.get_node_id()
+                    # get_state and power
+                    DATA_TO_SEND = json.dumps([{"category": 0, "id": 0, "params": [0]},
+                                               {"category": 0, "id": 1, "params": [0]}])
+                    send_command_to_device(node_name, DATA_TO_SEND, 0, 0)
+
+            if not is_coord:
+                # wait for ESP's respond for get device state and power
+                if node_obj.device_state is None or node_obj.voltage is None:
+                    time.sleep(1.5)
+
+                # add floodlight's info to NodeInfoAll
+                dpg.add_text(node_obj.device_state,parent="rowNodeInfoAll1")
+                dpg.add_text(node_obj.IMU_state,   parent="rowNodeInfoAll2")
+                dpg.add_text(node_obj.GPS_state,   parent="rowNodeInfoAll3")
+                dpg.add_text(node_obj.BLE_state,   parent="rowNodeInfoAll4")
+                dpg.add_text("{} V".format(node_obj.voltage) if node_obj.voltage is not None else "n/a",parent="rowNodeInfoAll5")
+                dpg.add_text("{} mA".format(node_obj.current_draw) if node_obj.current_draw is not None else "n/a",parent="rowNodeInfoAll6")
 
 
     dpg.clear_selected_nodes("nodeEditor")
 
 def draw_node(node, coord_pos, index):
     id = node.get_node_id()
-    if id is None: # when newly added
+    if id is None or id == 'None': # when newly added
         id = node.get_parameter("NI").decode()
     with dpg.node(label=id, pos=node_pos_generate(coord_pos, index),
                   tag=''.join(['node', id, 'Graph']), parent="nodeEditor") as node_here:
@@ -307,17 +354,16 @@ def refresh_node_info_and_add_to_main_windows():
     net.nodes_obj.clear()       # clear list of our container object for each node, ready for construct
     net.available_nodes.clear() # clear list of tracked nodes
 
-    # there's ghost cache in the net, when a node left, it can be still discovered for a short while
-    # here we check, if cached, node_id returns None
-    nodes_checked = []
-    for node in net.nodes:
-        try:
-            node.get_parameter("NI").decode()
-        except:
-            pass
-        else:
-            nodes_checked.append(node)
-    net.nodes = nodes_checked
+    if net.enable_nodes_cache_check:
+        nodes_checked = []
+        for node in net.nodes:
+            try:
+                node.get_parameter("NI").decode()
+            except:
+                print("node {} check error, ignored.".format(node.get_node_id()))
+            else:
+                nodes_checked.append(node)
+        net.nodes = nodes_checked
 
     # prioritize this for loop, because drawings take time
     # we want to construct net.nodes_obj a.s.a.p
@@ -332,7 +378,9 @@ def refresh_node_info_and_add_to_main_windows():
         # get rssi value of each node using AT command "DB"
         obj.rssi = -utils.bytes_to_int(obj.node_xbee.get_parameter("DB"))
 
+    print("total nodes to draw: {}".format(len(net.nodes)))
     for index, node in enumerate(net.nodes, start=2):
+        print("draw node as index {}".format(index))
         id = node.get_node_id()
 
         # on node_editor
@@ -353,11 +401,17 @@ def refresh_node_info_and_add_to_main_windows():
     dpg.add_table_column(label="LQI index           ", parent="tableLinks",width=100*params.scale, width_fixed=True)
 
     try:
+        '''print("*** all connections ***")
         for connect in net.connections:
-            print("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
+            print("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))'''
+
+        #print("**** now drawing ****")
+        for connect in net.connections:
+            #print("{} <-> {}".format(connect.node_a.get_node_id(), connect.node_b.get_node_id()))
 
             # e.g. link: ROUTER2 <->COORD; input former -> output latter, note COORD only have output when drawing
             if connect.node_a.get_role().id == 0: # implicitly check if 'COORDINATOR'
+                #print("node_a is COORD")
                 text_a = 'output'
                 text_b = 'input'
             else:
@@ -377,6 +431,7 @@ def refresh_node_info_and_add_to_main_windows():
     # also refresh nodes in the list box "comboNodes", save id to the net object
     net.nodes_id = [node.get_node_id() for node in net.nodes]  # e.g. ['router1' 'router2']
     dpg.configure_item("comboNodes", items=net.nodes_id + ["All Nodes"])
+
 
 logging.basicConfig(filename="log.txt", filemode='a',
                         level=logging.INFO, format="%(asctime)s %(message)s")
