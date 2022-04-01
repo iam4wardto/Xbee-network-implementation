@@ -371,7 +371,12 @@ def refresh_node_info_and_add_to_main_windows():
         # inherit <RemoteXbeeDevice> class, and construct <node_container> object *important!
         tmp_obj = node_container(node)
         net.nodes_obj.append(tmp_obj)
-    net.available_nodes = net.nodes # assign currently discovered nodes
+
+    # assign currently discovered nodes
+    net.available_nodes = net.nodes
+    net.available_nodes_obj = net.nodes_obj
+    net.available_nodes_id = [node.get_node_id() for node in net.available_nodes]
+
 
 
     for obj in net.nodes_obj:

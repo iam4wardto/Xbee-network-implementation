@@ -70,10 +70,10 @@ def btnSendCommand_callback():
     for node_id in selected_node_id:
         # "All Nodes" appear only when select single
         if node_id == "All Nodes":
-            for obj in net.nodes_obj:
+            for obj in net.available_nodes_obj:
                 read_command_and_send(obj,node_id)
         else:
-            for obj in net.nodes_obj:
+            for obj in net.available_nodes_obj:
                 if obj.node_xbee.get_node_id() == node_id:  # find this node
                     read_command_and_send(obj,node_id)
 
@@ -178,13 +178,14 @@ def cb_network_modified(event_type, reason, node):
 
 def refresh_available_nodes():
     # refresh available nodes when status changed
+    net.available_nodes_obj = [obj for obj in net.nodes_obj if obj.is_available == True]
     net.available_nodes = [obj.node_xbee for obj in net.nodes_obj if obj.is_available == True]
     net.available_nodes_id = [node.get_node_id() for node in net.available_nodes]
     if dpg.get_value("comboNodes") != "All Nodes":
         if dpg.get_value("comboNodes") not in net.available_nodes_id:
             dpg.set_value("comboNodes", None)
     dpg.configure_item("comboNodes", items=net.available_nodes_id + ["All Nodes"])
-    print("available: ", net.available_nodes_id)
+    #print("available: ", net.available_nodes_id)
 
 
 def check_node_handshake_time():
@@ -231,8 +232,8 @@ def io_samples_callback(sample, remote, time):
                 net.log.log_debug("Node {} online.".format(id))
                 incoming_node.is_available = True
                 refresh_tableNodes()
-
             refresh_available_nodes()
+
             check_node_handshake_time()
 
         else:
@@ -246,7 +247,7 @@ def io_samples_callback(sample, remote, time):
                 put_node_into_list(remote)
                 dpg.add_text("{} dbm".format(-utils.bytes_to_int(remote.get_parameter("DB"))))
             draw_node(remote, params.coord_pos, dpg.get_item_user_data("nodeEditor"))
-            net.log.log_info("New node {} added!".format(remote.get_node_id()))
+            net.log.log_debug("New node {} added!".format(remote.get_node_id()))
 
 
 def btnOpenPort_callback(sender, app_data, user_data):

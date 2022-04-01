@@ -113,6 +113,7 @@ def get_temp_callback():
     else:
         target_nodes = [node_name]
 
+    print(target_nodes)
     for target_node in target_nodes:
         command_params = [{"category": 3, "id": 1, "params": [0]}]  # params 0 for None
         DATA_TO_SEND = json.dumps(command_params)

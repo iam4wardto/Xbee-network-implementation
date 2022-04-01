@@ -69,6 +69,7 @@ class network:
     nodes = None         # nodes discovered, list of <remoteXbeeDevice> object
     nodes_id = []        # nodes names, exclude coord
     available_nodes = []  # available nodes of <remoteXbeeDevice>, deal with node add and removal
+    available_nodes_obj = [] # available nodes of <node_container>
     available_nodes_id = []
     nodes_obj = []       # list of <node_container> object to save info
     connections = None   # link in the network
