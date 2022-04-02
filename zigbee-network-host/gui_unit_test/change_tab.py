@@ -10,6 +10,8 @@ def change_tab(sender, app_data):
 
 
 with dpg.window(label="Window", tag="window"):
+    dpg.add_color_edit((195, 67, 100, 255), label="",
+                       no_inputs=True,callback=None)
     with dpg.tab_bar(tag="tag_bar") as tb:
         with dpg.tab(label="tab 1", tag="tab1"):
             dpg.add_button(label="activate tab 2", callback=change_tab, tag=100)
