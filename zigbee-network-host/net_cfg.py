@@ -53,8 +53,11 @@ class params:
 
     device_state = ["Normal","Energy_Saving","Sleep","Off","Overheating","Error"]
 
+    light_effect = ["all on  ", "pulsing ", "charging","blinking","rainbow","police "]
+
     # test
     test_mode = False
+    demo_mode = True
     # the maximum payload size for api frame is 255 bytes, we test 6*40 bytes
     groups_payload_test = 9
 
@@ -101,6 +104,7 @@ class node_container:
 
     # status check
     handshake_time = None
+    last_msg = []  # when check integrity, used if need to put splitted msg together
 
     # device attribute
     location = []
@@ -109,10 +113,10 @@ class node_container:
     GPS_state = None
     BLE_state = None
 
-    rgba = []
-    brightness = 1
-    light_effect =0
-    last_msg = [] # when check integrity, used if need to put splitted msg together
+    # default light status
+    rgba = [255,255,255,255]
+    brightness = 0
+    light_effect = 0
 
     voltage = None
     current_draw = None

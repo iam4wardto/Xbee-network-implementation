@@ -64,6 +64,9 @@ def btnSendCommand_callback():
         net.log.log_debug("Please use select node first.")
         return
     # select single & valid
+    elif (not dpg.get_value("chbColor")) and (not dpg.get_value("chbBrightness")) and (not dpg.get_value("chbEffect")):
+        net.log.log_debug("Please select command first.")
+        return
     elif dpg.get_value("radioButtonNodeType")[0] == 'S':
         selected_node_id = [dpg.get_value("comboNodes")]
 
@@ -78,27 +81,34 @@ def btnSendCommand_callback():
                     read_command_and_send(obj,node_id)
 
 def read_command_and_send(obj,node_id):
-    target_color = dpg.get_value("colorSelector")  # rgba channel
-    target_color = [round(channel / 255.0, 2) for channel in target_color]
+    target_color = get_color_selector()
     command_params_1 = {"category": 2, "id": 0, "params": target_color}
 
     target_bright = dpg.get_value("sliderBrightness")
     # print("sliderBrightness: ", round(target_bright, 2))
     command_params_2 = {"category": 2, "id": 1, "params": [round(target_bright, 2)]}
 
-    command_params_3 = {"category": 2, "id": 2, "params": [5]}
+    effect_choice = dpg.get_value("radioButtonLEDEffect")
+    index = params.light_effect.index(effect_choice)
+    command_params_3 = {"category": 2, "id": 2, "params": [index]}
 
     command_string = []
     command_names = []
     if dpg.get_value("chbColor"):
+        if params.demo_mode:
+            obj.rgba = dpg.get_value("colorSelector")
         command_string.append(command_params_1)
         command_names.append(params.command[2][0])
 
     if dpg.get_value("chbBrightness"):
+        if params.demo_mode:
+            obj.brightness = dpg.get_value("sliderBrightness")
         command_string.append(command_params_2)
         command_names.append(params.command[2][1])
 
     if dpg.get_value("chbEffect"):
+        if params.demo_mode:
+            obj.light_effect = params.light_effect.index(dpg.get_value("radioButtonLEDEffect"))
         command_string.append(command_params_3)
         command_names.append(params.command[2][2])
 
@@ -114,6 +124,9 @@ def read_command_and_send(obj,node_id):
     else:
         net.log.log_error("[transmit {} to {} {}]".format(command_names, node_id,
                                                           send_response.transmit_status.description))
+
+    if params.demo_mode:
+        refresh_led_info_table()
 
 
 def chbGroupNode_callback(sender, app_data, user_data):
@@ -136,7 +149,7 @@ def refresh_nodes_temp_table():
     dpg.delete_item("tableFuncPanelTemps", children_only=True)
     dpg.add_table_column(label="Node ID", parent="tableFuncPanelTemps")
     dpg.add_table_column(label="temperature", parent="tableFuncPanelTemps")
-    for obj in net.nodes_obj:
+    for obj in net.available_nodes_obj:
         with dpg.table_row(parent="tableFuncPanelTemps"):
             dpg.add_text(obj.node_xbee.get_node_id())
             dpg.add_text(obj.temperature)
@@ -279,12 +292,15 @@ def btnOpenPort_callback(sender, app_data, user_data):
         dpg.hide_item("winLoadingIndicator")
         refresh_node_info_and_add_to_main_windows()  # then we have net.nodes_obj
         init_nodes_temp_table()
+        refresh_led_info_table()
 
     except Exception as err:
         print(err)
         net.log.log_error("Port open failed")
         dpg.set_value("portOpenMsg", "Failed, check again")
         dpg.bind_item_theme("portOpenMsg", "themeRed")
+    else:
+        pass
 
 
 def init_xbee_network():
@@ -292,6 +308,8 @@ def init_xbee_network():
     # Configure the discovery options.
     net.xbee_network.set_deep_discovery_options(deep_mode=NeighborDiscoveryMode.CASCADE,
                                                 del_not_discovered_nodes_in_last_scan=True)  # CASCADE or FLOOD
+    # use CASCADE option here, FLOOD leads to incomplete nodes list even though a node is discovered
+    # causes bug when drawing node from net.nodes
     net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5, time_bw_scans=5)
     net.xbee_network.clear()
 
@@ -326,6 +344,7 @@ def btnRefresh_callback(sender, app_data, user_data):
     dpg.hide_item("winLoadingIndicator")
     refresh_node_info_and_add_to_main_windows()
     init_nodes_temp_table()
+    refresh_led_info_table()
 
 
 # Callback for coord when receive data
@@ -387,11 +406,17 @@ def coord_data_received_callback(xbee_message):
 
                         elif data.get("category") == 2:
                             if data.get("id") == 0:   # returned set color response
-                                check_response(data.get("response")[0], 2, 0)
+                                if check_response(data.get("response")[0], 2, 0):
+                                    obj.rgba = dpg.get_value("colorSelector")
+                                    refresh_led_info_table()
                             elif data.get("id") == 1: # returned set brightness response
-                                check_response(data.get("response")[0], 2, 1)
+                                if check_response(data.get("response")[0], 2, 1):
+                                    obj.brightness = dpg.get_value("sliderBrightness")
+                                    refresh_led_info_table()
                             elif data.get("id") == 2: # returned set effect response
-                                check_response(data.get("response")[0], 2, 2)
+                                if check_response(data.get("response")[0], 2, 2):
+                                    obj.light_effect = params.light_effect.index(dpg.get_value("radioButtonLEDEffect"))
+                                    refresh_led_info_table()
 
 
                         elif data.get("category") == 3:

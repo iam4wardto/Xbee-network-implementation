@@ -594,8 +594,8 @@ def main():
                                 with dpg.group():
                                     t = dpg.add_text("Light Effect      ")
 
-                                    dpg.add_radio_button(("all on  ", "pulsing ", "charging","police ","blinking","rainbow"), horizontal=False,
-                                                         tag="radioButtonLEDEffect")
+                                    dpg.add_radio_button(params.light_effect, horizontal=False,
+                                                         tag="radioButtonLEDEffect",callback=None,default_value="all on  ")
                                     with dpg.tooltip(t):
                                         dpg.add_image(gui_image[4],width=120*params.scale, height=184*params.scale)
                                 with dpg.group():
@@ -604,7 +604,7 @@ def main():
                                     dpg.add_radio_button(("Single ", "Group "),horizontal=False,
                                                          tag="radioButtonNodeType",default_value="Single")
                                     with dpg.tooltip(t):
-                                        dpg.add_text("Use node selector above for single node,\nto select a group, click Node Group button")
+                                        dpg.add_text("Use node selector above for single node;\nto select a group, click Node Group button")
                                     dpg.add_text("Select Command:")
                                     dpg.bind_item_theme(dpg.last_item(), "themeRed2")
                                     dpg.add_checkbox(label="set Color",tag="chbColor")
@@ -634,14 +634,18 @@ def main():
                                 dpg.add_table_column(label="Color")
 
 
-
             with dpg.tab(label="Location", tag="tabLocation"):
-                '''map_url = generate_map_url()
-                urllib.request.urlretrieve(map_url, "./figure/map.png")
-                width, height, channels, data = dpg.load_image("./figure/map.png")
-                with dpg.texture_registry():
-                    texture_map = dpg.add_static_texture(width, height, data)
-                dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width / 2))'''
+                try:
+                    map_url = generate_map_url()
+                    urllib.request.urlretrieve(map_url, "./figure/map.png")
+                    width, height, channels, data = dpg.load_image("./figure/map.png")
+                    with dpg.texture_registry():
+                        texture_map = dpg.add_static_texture(width, height, data)
+                    dpg.add_image(texture_map, width=params.func_width, height=int(params.func_width / 2))
+                except Exception as err:
+                    print(err)
+                    print("network unavailable, skip map")
+                    net.log.log_debug("network unavailable, skip map")
                 pass
 
     # put this windows at last, o.t.w. "modal" doesn't work

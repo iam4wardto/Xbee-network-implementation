@@ -11,9 +11,34 @@ from gui_callback import *
 from net_cfg import *
 import logging
 
+def refresh_led_info_table():
+    '''
+    to int, refresh the temperature list when receive the related response
+    :return: None
+    '''
+    dpg.delete_item("tableNodeLEDInfo", children_only=True)
+    dpg.add_table_column(label="ID",parent="tableNodeLEDInfo")
+    dpg.add_table_column(label="Brightness",parent="tableNodeLEDInfo")
+    dpg.add_table_column(label="Color", parent="tableNodeLEDInfo")
+    dpg.add_table_column(label="Pattern",parent="tableNodeLEDInfo")
+
+
+    for obj in net.available_nodes_obj:
+        with dpg.table_row(parent="tableNodeLEDInfo"):
+            dpg.add_text(obj.node_xbee.get_node_id()[-4:])
+            dpg.add_text(round(obj.brightness,2))
+            dpg.add_color_edit(default_value=obj.rgba, label="",no_inputs=True,no_picker=True,callback=None)
+            dpg.add_text(params.light_effect[obj.light_effect])
+
+
 def find_node_obj_by_addr64(addr_64):
     target = next((obj for obj in net.nodes_obj if obj.node_xbee.get_64bit_addr() == addr_64))
     return target
+
+def get_color_selector():
+    target_color = dpg.get_value("colorSelector")  # rgba channel
+    target_color = [round(channel / 255.0, 2) for channel in target_color]
+    return target_color
 
 def check_and_join_msg(message, addr_64):
     '''
@@ -78,7 +103,7 @@ def generate_map_url():
               "size=640x320&scale=2" \
               "&maptype=roadmap" \
               "&map_id=c0881174066edcec" \
-              "&key=AIzaSyBlLnKa2csTpSt1gdlyg-j_dYkEg_F9wlc" \
+              "&key=AIzaSyBDVTILZJRnZc0Cz8QL5OlgXMpfiRr7UKw" \
               "&markers=size:mid%7Ccolor:blue%7Clabel:1%7C47.375164,8.545840"\
               "&markers=size:mid%7Ccolor:green%7Clabel:2%7C47.378155,8.545888" \
               "&markers=size:mid%7Ccolor:red%7Clabel:3%7C47.376233,8.548458"
@@ -289,7 +314,7 @@ def select_node_callback():
             if not is_coord:
                 # wait for ESP's respond for get device state and power
                 if node_obj.device_state is None or node_obj.voltage is None:
-                    time.sleep(1.5)
+                    time.sleep(1.4)
 
                 # add floodlight's info to NodeInfoAll
                 dpg.add_text(node_obj.device_state,parent="rowNodeInfoAll1")
@@ -385,7 +410,7 @@ def refresh_node_info_and_add_to_main_windows():
 
     print("total nodes to draw: {}".format(len(net.nodes)))
     for index, node in enumerate(net.nodes, start=2):
-        print("draw node as index {}".format(index))
+        #print("draw node as index {}".format(index))
         id = node.get_node_id()
 
         # on node_editor
