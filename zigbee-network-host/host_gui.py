@@ -646,6 +646,8 @@ def main():
                     print(err)
                     print("network unavailable, skip map")
                     net.log.log_debug("network unavailable, skip map")
+                    dpg.add_text("Require network connection to display map.")
+                    dpg.bind_item_theme(dpg.last_item(),"themeBlue")
                 pass
 
     # put this windows at last, o.t.w. "modal" doesn't work

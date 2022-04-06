@@ -322,7 +322,7 @@ def select_node_callback():
                 dpg.add_text(node_obj.GPS_state,   parent="rowNodeInfoAll3")
                 dpg.add_text(node_obj.BLE_state,   parent="rowNodeInfoAll4")
                 dpg.add_text("{} V".format(node_obj.voltage) if node_obj.voltage is not None else "n/a",parent="rowNodeInfoAll5")
-                dpg.add_text("{} mA".format(node_obj.current_draw) if node_obj.current_draw is not None else "n/a",parent="rowNodeInfoAll6")
+                dpg.add_text("{} A".format(node_obj.current_draw) if node_obj.current_draw is not None else "n/a",parent="rowNodeInfoAll6")
 
 
     dpg.clear_selected_nodes("nodeEditor")

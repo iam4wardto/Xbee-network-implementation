@@ -398,8 +398,8 @@ def coord_data_received_callback(xbee_message):
                                 obj.GPS_state = data.get("response")[2]
                                 obj.BLE_state = data.get("response")[3]
                             if data.get("id") == 1:  # returned power info
-                                obj.voltage = round(data.get("response")[0],2)
-                                obj.current_draw = round(data.get("response")[1],2)
+                                obj.voltage = round(data.get("response")[0]/100,2)
+                                obj.current_draw = round(data.get("response")[1]/100,2)
 
                         elif data.get("category") == 1:
                             pass
