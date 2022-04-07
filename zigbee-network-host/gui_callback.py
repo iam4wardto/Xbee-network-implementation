@@ -1,5 +1,5 @@
 import json
-import time
+import sched, time
 import dearpygui.dearpygui as dpg
 import math
 import logging
@@ -9,6 +9,174 @@ from digi.xbee.devices import *
 from digi.xbee.models import *
 from net_cfg import *
 from helper_funcs import *
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
+def get_temp_callback(sender, app_data, all_nodes = False):
+    node_name = dpg.get_value("comboNodes")
+    #print(all_nodes)
+    if all_nodes is True:
+        node_name = "All Nodes"
+        params.lastRuntimeTemp = time.gmtime()
+        refresh_cyclic_runtime_table()
+    #print(node_name)
+    if node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+    """
+            command list encoded in JSON
+            "category": 0, 1, 2, 3 i.e. device, time, led, info
+            "params": same input for this function
+            """
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    #print(target_nodes)
+    for target_node in target_nodes:
+        command_params = [{"category": 3, "id": 1, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 3, 1, not all_nodes)
+
+
+def get_state_callback(sender, app_data, all_nodes:bool = False):
+    node_name = dpg.get_value("comboNodes")
+    if all_nodes is True:
+        node_name = "All Nodes"
+        params.lastRuntimeDevice = time.gmtime()
+        refresh_cyclic_runtime_table()
+    #print(node_name)
+    if node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    for target_node in target_nodes:
+        command_params = [{"category": 0, "id": 0, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 0, 0, not all_nodes)
+
+def get_power_callback(sender, app_data, all_nodes:bool = False):
+    '''
+    when use all_nodes param, is in cyclic tasks, then we disable log response to log windows,
+    in order not to flood the pannel
+    '''
+    node_name = dpg.get_value("comboNodes")
+    if all_nodes is True:
+        node_name = "All Nodes"
+        params.lastRuntimePower = time.gmtime()
+        refresh_cyclic_runtime_table()
+    if node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    for target_node in target_nodes:
+        command_params = [{"category": 0, "id": 1, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 0, 1, not all_nodes)
+
+
+def sync_clock_callback(sender, app_data, all_nodes:bool = False):
+    #node_name = dpg.get_value("comboNodes")
+    # it is reasonable to send this command to all nodes
+    node_name = "All Nodes"
+    if node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    if node_name == "All Nodes":
+        target_nodes = net.available_nodes_id
+    else:
+        target_nodes = [node_name]
+
+    if all_nodes is True:
+        params.lastRuntimeSync = time.gmtime()
+        refresh_cyclic_runtime_table()
+    for target_node in target_nodes:
+        command_params = [{"category": 1, "id": 0, "params": [0]}]  # params 0 for None
+        DATA_TO_SEND = json.dumps(command_params)
+        send_command_to_device(target_node, DATA_TO_SEND, 1, 0, not all_nodes)
+
+
+def local_chbCyclicDevice(local_handler):
+    get_state_callback(True)
+    local_handler.enter(dpg.get_value("sliderCyclicDevice"), 1, local_chbCyclicDevice, (local_handler,))
+    local_handler.run(blocking=False)
+
+def chbCyclicDevice_callback(sender, app_data, user_data):
+    #if 'cyclic_get_device_task' in globals():
+    #    pass
+    #print(dpg.get_value("sliderCyclicDevice"))
+    if app_data: # select as True
+        net.log.log_debug("Cyclic task get_Status ON.")
+        interval = dpg.get_value("sliderCyclicDevice")
+        params.cyclic_get_device_task.add_job(get_state_callback,'interval', seconds=interval, args=(None,None,True))
+        if not params.cyclic_get_device_task.running:
+            params.cyclic_get_device_task.start()
+    else:
+        net.log.log_debug("Cyclic task get_Status OFF.")
+        try:
+            params.cyclic_get_device_task.remove_all_jobs()
+        except Exception as e:
+            # If event is not an event currently in the queue, this method will raise a ValueError.
+            print(e)
+    #print(params.cyclic_get_device_task.queue)
+
+def chbCyclicPower_callback(sender, app_data, user_data):
+    if app_data:  # select as True
+        net.log.log_debug("Cyclic task get_Power ON.")
+        interval = dpg.get_value("sliderCyclicPower")
+        params.cyclic_get_power_task.add_job(get_power_callback, 'interval', seconds=interval, args=(None,None,True))
+        if not params.cyclic_get_power_task.running:
+            params.cyclic_get_power_task.start()
+    else:
+        net.log.log_debug("Cyclic task get_Power OFF.")
+        try:
+            params.cyclic_get_power_task.remove_all_jobs()
+        except:
+            pass
+
+
+def chbCyclicTemp_callback(sender, app_data, user_data):
+
+    if app_data:  # select as True
+        net.log.log_debug("Cyclic task get_Temp ON.")
+        interval = dpg.get_value("sliderCyclicTemp")
+        params.cyclic_get_temp_task.add_job(get_temp_callback, 'interval', seconds=interval, args=(None,None,True) )
+        if not params.cyclic_get_temp_task.running:
+            params.cyclic_get_temp_task.start()
+    else:
+        net.log.log_debug("Cyclic task get_Temp OFF.")
+        try:
+            params.cyclic_get_temp_task.remove_all_jobs()
+        except:
+            pass
+
+
+def chbCyclicSync_callback(sender, app_data, user_data):
+
+    if app_data:  # select as True
+        net.log.log_debug("Cyclic task sync_Clock ON.")
+        interval = dpg.get_value("sliderCyclicSync")
+        params.cyclic_sync_clock_task.add_job(sync_clock_callback, 'interval', seconds=interval, args=(None,None,True))
+        if not params.cyclic_sync_clock_task.running:
+            params.cyclic_sync_clock_task.start()
+    else:
+        net.log.log_debug("Cyclic task sync_Clock OFF.")
+        try:
+            params.cyclic_sync_clock_task.remove_all_jobs()
+        except:
+            pass
 
 
 def btnDisconnectCoord_callback():
@@ -43,7 +211,7 @@ def btnGroupNode_callback():
                 except:
                     pass
                 else:
-                    dpg.add_checkbox(label=nodes_list[3 * i + j], callback=chbGroupNode_callback
+                    dpg.add_checkbox(label=nodes_list[3 * i + j][-5:], callback=chbGroupNode_callback
                                      , user_data=nodes_list[3 * i + j])
     dpg.show_item("winGroupNode")
 
@@ -293,6 +461,7 @@ def btnOpenPort_callback(sender, app_data, user_data):
         refresh_node_info_and_add_to_main_windows()  # then we have net.nodes_obj
         init_nodes_temp_table()
         refresh_led_info_table()
+        refresh_cyclic_runtime_table()
 
     except Exception as err:
         print(err)

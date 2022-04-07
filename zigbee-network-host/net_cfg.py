@@ -61,6 +61,21 @@ class params:
     # the maximum payload size for api frame is 255 bytes, we test 6*40 bytes
     groups_payload_test = 9
 
+    # cyclic tasks related
+    scheduler = None
+    global cyclic_get_temp_task
+    global cyclic_get_power_task
+    global cyclic_sync_clock_task
+    global cyclic_get_device_task
+
+    lastRuntimeDevice = None
+    lastRuntimePower = None
+    lastRuntimeTemp = None
+    lastRuntimeSync = None
+
+    min_cyclic_interval = 5
+    max_cyclic_interval = 30
+
 # coordinator should be named COORD
 # adjust all gui params here...
 class network:

@@ -11,6 +11,39 @@ from gui_callback import *
 from net_cfg import *
 import logging
 
+def get_hh_mm_ss_from_time(timestamp):
+    format_time = time.gmtime(timestamp)
+    return("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
+
+def refresh_cyclic_runtime_table():
+    dpg.delete_item("tableCyclicTaskRuntime",children_only=True)
+    dpg.add_table_column(label="Last Runtime",parent="tableCyclicTaskRuntime")
+
+    with dpg.table_row(parent="tableCyclicTaskRuntime"):
+        if params.lastRuntimeDevice is not None:
+            format_time = params.lastRuntimeDevice
+            dpg.add_text("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
+        else:
+            dpg.add_text("n/a")
+    with dpg.table_row(parent="tableCyclicTaskRuntime"):
+        if params.lastRuntimePower is not None:
+            format_time = params.lastRuntimePower
+            dpg.add_text("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
+        else:
+            dpg.add_text("n/a")
+    with dpg.table_row(parent="tableCyclicTaskRuntime"):
+        if params.lastRuntimeTemp is not None:
+            format_time = params.lastRuntimeTemp
+            dpg.add_text("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
+        else:
+            dpg.add_text("n/a")
+    with dpg.table_row(parent="tableCyclicTaskRuntime"):
+        if params.lastRuntimeSync is not None:
+            format_time = params.lastRuntimeSync
+            dpg.add_text("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
+        else:
+            dpg.add_text("n/a")
+
 def refresh_led_info_table():
     '''
     to int, refresh the temperature list when receive the related response
@@ -216,16 +249,18 @@ def init_nodes_temp_table():
             dpg.add_text("n/a")
 
 
-def send_command_to_device(node_name, DATA_TO_SEND, cat, id):
+def send_command_to_device(node_name, DATA_TO_SEND, cat, id, log = True):
     for obj in net.nodes_obj:
         if obj.node_xbee.get_node_id() == node_name:
             send_response = net.coord.send_data_64_16(obj.node_xbee.get_64bit_addr(), obj.node_xbee.get_16bit_addr(),
                                                       DATA_TO_SEND)
             net.last_command_time = time.time() # log command sent time
             if send_response.transmit_status.description == "Success":
-                net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
+                if log is True:
+                    net.log.log_info("[transmit {}.{} {}]".format(node_name,params.command[cat][id], "Success"))
             else:
-                net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
+                if log is True:
+                    net.log.log_error("[transmit {}.{} {}]".format(node_name,params.command[cat][id],
                                                                send_response.transmit_status.description))
             return
     # if not found this node

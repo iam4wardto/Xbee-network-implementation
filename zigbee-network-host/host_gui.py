@@ -98,28 +98,6 @@ def _help(message):  # to add help tooltip for the last item
         dpg.add_text(message)
 
 
-def get_temp_callback():
-    node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name is None:  # user not selected
-        net.log.log_error("Please select node first.")
-        return
-    """
-            command list encoded in JSON
-            "category": 0, 1, 2, 3 i.e. device, time, led, info
-            "params": same input for this function
-            """
-    if node_name == "All Nodes":
-        target_nodes = net.available_nodes_id
-    else:
-        target_nodes = [node_name]
-
-    print(target_nodes)
-    for target_node in target_nodes:
-        command_params = [{"category": 3, "id": 1, "params": [0]}]  # params 0 for None
-        DATA_TO_SEND = json.dumps(command_params)
-        send_command_to_device(target_node, DATA_TO_SEND, 3, 1)
-
-
 def latency_test_callback():
     node_name = dpg.get_value("comboNodes")
     if node_name == 'None' or node_name is None:
@@ -185,56 +163,6 @@ def payload_test_callback():
 
     logging.info("*** payload test success ***")
     print("*** payload test success ***")
-
-
-def get_state_callback():
-    node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name is None:  # user not selected
-        net.log.log_error("Please select node first.")
-        return
-
-    if node_name == "All Nodes":
-        target_nodes = net.available_nodes_id
-    else:
-        target_nodes = [node_name]
-
-    for target_node in target_nodes:
-        command_params = [{"category": 0, "id": 0, "params": [0]}]  # params 0 for None
-        DATA_TO_SEND = json.dumps(command_params)
-        send_command_to_device(target_node, DATA_TO_SEND, 0, 0)
-
-def get_power_callback():
-    node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name is None:  # user not selected
-        net.log.log_error("Please select node first.")
-        return
-
-    if node_name == "All Nodes":
-        target_nodes = net.available_nodes_id
-    else:
-        target_nodes = [node_name]
-
-    for target_node in target_nodes:
-        command_params = [{"category": 0, "id": 1, "params": [0]}]  # params 0 for None
-        DATA_TO_SEND = json.dumps(command_params)
-        send_command_to_device(target_node, DATA_TO_SEND, 0, 1)
-
-
-def sync_clock_callback():
-    node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name is None:  # user not selected
-        net.log.log_error("Please select node first.")
-        return
-
-    if node_name == "All Nodes":
-        target_nodes = net.available_nodes_id
-    else:
-        target_nodes = [node_name]
-
-    for target_node in target_nodes:
-        command_params = [{"category": 1, "id": 0, "params": [0]}]  # params 0 for None
-        DATA_TO_SEND = json.dumps(command_params)
-        send_command_to_device(target_node, DATA_TO_SEND, 1, 0)
 
 
 def set_color_callback():
@@ -497,8 +425,10 @@ def main():
                 dpg.bind_item_theme("btnRefreshAllNet", "themeBlue")
                 with dpg.tooltip("btnRefreshAllNet"):
                     dpg.add_text("start new discovery")
+                    dpg.bind_item_theme(dpg.last_item(), "themeBlue")
                 with dpg.tooltip("btnMaxNodeView"):
                     dpg.add_text("maximize node graph view")
+                    dpg.bind_item_theme(dpg.last_item(), "themeBlue")
             with dpg.node_editor(
                     callback=lambda sender, app_data: dpg.add_node_link(app_data[0], app_data[1], parent=sender),
                     delink_callback=lambda sender, app_data: dpg.delete_item(app_data), tag="nodeEditor"):
@@ -564,23 +494,76 @@ def main():
                     add_column_tableNodeInfoAll()
 
             with dpg.tab(label="Device Status", tag="tabTemp"):
+                dpg.add_spacer(height=1 * params.scale)
                 with dpg.group(horizontal=True):
                     dpg.add_button(label="get Temp", tag="btnFuncPanelGetTemp", callback=get_temp_callback)
                     dpg.add_button(label="get Status", tag="btnFuncPanelGetStatus", callback=get_state_callback)
                     dpg.add_button(label="get Power", tag="btnFuncPanelGetPower", callback=get_power_callback)
                     dpg.add_button(label="sync Clock", tag="btnFuncPanelSyncClock", callback=sync_clock_callback)
+                    with dpg.tooltip("btnFuncPanelSyncClock"):
+                        dpg.add_text(
+                            "Send set_zero_clock command to all nodes in the network.")
+                        dpg.bind_item_theme(dpg.last_item(),"themeBlue")
 
                 dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelGetStatus", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelGetPower", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelSyncClock", "themeBlue")
 
-                with dpg.collapsing_header(label="Nodes Temp", default_open=True):
+                dpg.add_text("Set Cyclic Tasks Here")
+                with dpg.group(horizontal=True):
+                    with dpg.table(header_row=True, row_background=False,
+                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,width=params.func_width*0.42,
+                                   borders_outerV=False, delay_search=True, tag="tableFuncPanelCyclic"):
+
+                        dpg.add_table_column(label="Task",width_fixed=True, width=20*params.scale)
+                        dpg.add_table_column(label="T/F",width_fixed=True, width=10*params.scale)
+                        with dpg.tooltip(dpg.last_item()):
+                            dpg.add_text(
+                                'Cyclically send command to all nodes.')
+                            #dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+
+                        dpg.add_table_column(tag="colTableCyclicTime",label="Interval",width=15*params.scale)
+
+                        min_int = params.min_cyclic_interval
+                        max_int = params.max_cyclic_interval
+                        with dpg.table_row():
+                            dpg.add_text("get_device_state")
+                            dpg.add_checkbox(tag="chbCyclicDevice",callback=chbCyclicDevice_callback)
+                            dpg.add_slider_int(tag="sliderCyclicDevice", default_value=10, min_value=min_int, max_value=max_int,
+                                               format="%d s",width=83*params.scale)
+
+                        with dpg.table_row():
+                            dpg.add_text("get_power_info")
+                            dpg.add_checkbox(tag="chbCyclicPower",callback=chbCyclicPower_callback)
+                            dpg.add_slider_int(tag="sliderCyclicPower", default_value=10, min_value=min_int, max_value=max_int,
+                                               format="%d s",width=83*params.scale)
+
+                        with dpg.table_row():
+                            dpg.add_text("get_temperature")
+                            dpg.add_checkbox(tag="chbCyclicTemp",callback=chbCyclicTemp_callback)
+                            dpg.add_slider_int(tag="sliderCyclicTemp", default_value=10, min_value=min_int, max_value=max_int,
+                                               format="%d s",width=83*params.scale)
+
+                        with dpg.table_row():
+                            dpg.add_text("sync_clock")
+                            dpg.add_checkbox(tag="chbCyclicSync",callback=chbCyclicSync_callback)
+                            dpg.add_slider_int(tag="sliderCyclicSync", default_value=10, min_value=min_int, max_value=max_int,
+                                               format="%d s",width=83*params.scale)
+
                     with dpg.table(header_row=True, row_background=False,
                                    borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                                   width=params.func_width * 0.16,
+                                   borders_outerV=False, delay_search=True, tag="tableCyclicTaskRuntime"):
+                        dpg.add_table_column(label="Last Runtime")
+                    #with dpg.collapsing_header(label="Nodes Temp", default_open=True):
+                    dpg.add_spacer(width=params.func_width*0.01)
+
+                    with dpg.table(header_row=True, row_background=False,
+                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,width=params.func_width*0.35,
                                    borders_outerV=False, delay_search=True, tag="tableFuncPanelTemps"):
                         dpg.add_table_column(label="Node ID")
-                        dpg.add_table_column(label="temperature")
+                        dpg.add_table_column(label="Temperature")
             with dpg.tab(label="LED Control", tag="tabLEDColor"):
                 with dpg.table(header_row=False, row_background=False,
                             borders_innerH=False, borders_outerH=False, borders_innerV=False,
@@ -772,4 +755,8 @@ def main():
 
 
 if __name__ == '__main__':
+    params.cyclic_get_device_task = BackgroundScheduler()
+    params.cyclic_get_temp_task = BackgroundScheduler()
+    params.cyclic_get_power_task = BackgroundScheduler()
+    params.cyclic_sync_clock_task = BackgroundScheduler()
     main()
