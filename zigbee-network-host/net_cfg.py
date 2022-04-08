@@ -56,7 +56,9 @@ class params:
     light_effect = ["all on  ", "pulsing ", "charging","blinking","rainbow","police "]
 
     # test
-    test_mode = False
+    #add latency test and payload test button, also calculate packet latency
+    test_mode = True
+    #if demo_mode, we set color in NodeLEDInfo table diretly when we send command, let alone the execute response from remote
     demo_mode = True
     # the maximum payload size for api frame is 255 bytes, we test 6*40 bytes
     groups_payload_test = 9
@@ -112,6 +114,7 @@ class node_container:
         self.node_xbee = xbee_obj
     # save get_...() response of each node
     node_xbee = None
+    route = None          # route from COORD to this node, Tuple with route data (source, des, hops (List): List of intermediate nodes)
     is_available = True   # node status, true when init
     temperature = "n/a"   # temperature, use string here
     rssi = float('-inf')  # rssi value foe each node

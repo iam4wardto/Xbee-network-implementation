@@ -11,6 +11,47 @@ from gui_callback import *
 from net_cfg import *
 import logging
 
+
+def set_node_color(node_name):
+    target_color = get_color_selector()
+
+    '''node_name = dpg.get_value("comboNodes")'''
+    if node_name == 'None' or node_name == None:  # user not selected
+        net.log.log_error("Please use valid node name.")
+        return
+
+    # note our payload format is wrapped with []
+    command_params = [{"category": 2, "id": 0, "params": target_color}]
+    DATA_TO_SEND = json.dumps(command_params)
+    send_command_to_device(node_name, DATA_TO_SEND, 2, 0)
+
+
+def refresh_source_route_table():
+    dpg.delete_item("tableNodeRoute",children_only=True)
+
+    dpg.add_table_column(label="ID                      ", width=params.func_width * 0.35, width_fixed=True,parent="tableNodeRoute")
+    dpg.add_table_column(label="Route",parent="tableNodeRoute")
+
+    # ‘AR’ parameter of the local node must be configured with a value different from ‘FF’.
+    for obj in net.available_nodes_obj:
+        with dpg.table_row(parent="tableNodeRoute"):
+            dpg.add_text(obj.node_xbee.get_node_id())
+
+            # Tuple containing route data: [0]status  / [1]Tuple with route data
+            route = net.coord.get_route_to_node(obj.node_xbee,timeout=10, force=True)
+            obj.route = route[1]
+            format_route = get_format_route(obj.route)
+            dpg.add_text(format_route)
+
+def get_format_route(route):
+    start = route[0].get_node_id()
+    end = route[1].get_node_id()
+    hops = ''
+    if route[2]:
+        for node in route[2]:
+            hops = hops + (node.get_node_id()+'->')
+    return start+'->'+hops+'->'+end
+
 def get_hh_mm_ss_from_time(timestamp):
     format_time = time.gmtime(timestamp)
     return("{}:{}:{}".format(format_time.tm_hour,format_time.tm_min,format_time.tm_sec))
@@ -66,6 +107,10 @@ def refresh_led_info_table():
 
 def find_node_obj_by_addr64(addr_64):
     target = next((obj for obj in net.nodes_obj if obj.node_xbee.get_64bit_addr() == addr_64))
+    return target
+
+def find_node_obj_by_id(id):
+    target = next((obj for obj in net.nodes_obj if obj.node_xbee.get_node_id() == id))
     return target
 
 def get_color_selector():

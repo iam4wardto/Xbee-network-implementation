@@ -165,20 +165,6 @@ def payload_test_callback():
     print("*** payload test success ***")
 
 
-def set_color_callback():
-    target_color = dpg.get_value("colorSelector") # rgba channel
-    #print(target_color)
-    node_name = dpg.get_value("comboNodes")
-    if node_name == 'None' or node_name == None:  # user not selected
-        net.log.log_error("Please select node first.")
-        return
-
-    command_params = [{"category": 2, "id": 0, "params":
-        [target_color[0]/255.0,target_color[1]/255.0,target_color[2]/255.0,target_color[3]/255.0]}]
-    DATA_TO_SEND = json.dumps(command_params)
-    send_command_to_device(node_name, DATA_TO_SEND, 2, 0)
-
-
 def com_radio_button_callback(sender, app_data):
     serial_param.PORT = app_data.partition(':')[0]
     # e.g. input app_data: "COM7: USB Serial Port (COM7)", here take COM7 out
@@ -406,6 +392,7 @@ def main():
 
             with dpg.menu(label="Settings"):
                 dpg.add_menu_item(label="Set Fullscreen", check=True, callback=lambda: dpg.toggle_viewport_fullscreen())
+                dpg.add_menu_item(label="Test Mode", check=True, default_value=True, callback=menuTestMode_callback)
                 dpg.add_menu_item(label="Getting Started", callback=menuGettingStarted_callback)
                 dpg.add_menu_item(label="About", callback=menuAbout_callback)
 
@@ -462,7 +449,7 @@ def main():
             dpg.add_table_column(width=350, width_fixed=True)
             dpg.add_table_column(width_stretch=True)
             with dpg.table_row():
-                dpg.add_text("Implementing Distributed Network Communication\nfor Outdoor Sensor Network\n")
+                dpg.add_text("\nImplementing Meshed Network for Outdoor Floodlight")
                 # dpg.add_text("for Outdoor Sensor Network")
                 # dpg.add_text("")
                 dpg.add_image(gui_image[1], width=548, height=200)
@@ -616,6 +603,23 @@ def main():
                                 dpg.add_table_column(label="Pattern")
                                 dpg.add_table_column(label="Color")
 
+            with dpg.tab(label="Source Routing", tag="tabSourceRouting"):
+                dpg.add_text("Obtain and specify routes for remote nodes.")
+                with dpg.group(horizontal=True):
+                    dpg.add_button(label="Refresh Route",tag="btnSourceRoutingRefresh",callback=refresh_source_route_table)
+                    dpg.bind_item_theme(dpg.last_item(),"themeBlue")
+                    t = dpg.add_button(label="Brighten Up!", tag="btnSourceRoutingBrighten",callback=brighten_route_callback)
+                    dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+                    with dpg.tooltip(t):
+                        dpg.add_text("Lighting the route to specified remote node.")
+                        dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+                with dpg.table(header_row=True, row_background=False,
+                               borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                               borders_outerV=False, delay_search=True, tag="tableNodeRoute"):
+                    dpg.add_table_column(label="ID                      ",width=params.func_width*0.35,width_fixed=True)
+                    dpg.add_table_column(label="Route")
+
+                pass
 
             with dpg.tab(label="Location", tag="tabLocation"):
                 try:
@@ -653,8 +657,8 @@ def main():
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
 
-    with dpg.window(label="Group Node", tag="winGroupNode", autosize=True, pos=params.winWelcome_pos, modal=True,
-                    no_close=False, show=False, user_data=[]):
+    with dpg.window(label="Group Node", tag="winGroupNode", autosize = False, pos=params.winWelcome_pos, modal=True,
+                    no_close=False, show=False, user_data=[],width=200*params.scale, no_resize=True):
         with dpg.table(header_row=False, row_background=False,
                        borders_innerH=False, borders_outerH=False, borders_innerV=False,
                        borders_outerV=False, delay_search=True, tag="tableGroupNode"):

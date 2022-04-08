@@ -11,6 +11,37 @@ from net_cfg import *
 from helper_funcs import *
 from apscheduler.schedulers.background import BackgroundScheduler
 
+def brighten_route_callback():
+    node_name = dpg.get_value("comboNodes")
+
+    if node_name == 'All Nodes':
+        net.log.log_error("Please select single node to lighten route.")
+        return
+    elif node_name == 'None' or node_name is None:  # user not selected
+        net.log.log_error("Please select node first.")
+        return
+
+    target = find_node_obj_by_id(node_name)
+    if target.route[2]:
+        for obj in target.route[2]:
+            set_node_color(obj.node_xbee.get_node_id())
+    # set destination node color as well
+    set_node_color(target.route[1].get_node_id())
+
+    net.log.log_debug('Lightening route to {} success.'.format(node_name))
+
+def menuTestMode_callback():
+    if params.test_mode == True:
+        params.test_mode = False
+        dpg.hide_item("btnDisconnectCoord")
+        dpg.hide_item("btnPayloadTest")
+        dpg.hide_item("btnLatencyTest")
+    else:
+        params.test_mode = True
+        dpg.show_item("btnDisconnectCoord")
+        dpg.show_item("btnPayloadTest")
+        dpg.show_item("btnLatencyTest")
+
 
 def get_temp_callback(sender, app_data, all_nodes = False):
     node_name = dpg.get_value("comboNodes")
@@ -203,6 +234,8 @@ def btnGroupNode_callback():
     if "All Nodes" in nodes_list:
         nodes_list.remove("All Nodes")
     row_num = math.ceil(len(nodes_list) / 3)
+
+    # here we put all available nodes in three columns
     for i in range(row_num):
         with dpg.table_row(parent="tableGroupNode"):
             for j in range(3):
@@ -213,6 +246,8 @@ def btnGroupNode_callback():
                 else:
                     dpg.add_checkbox(label=nodes_list[3 * i + j][-5:], callback=chbGroupNode_callback
                                      , user_data=nodes_list[3 * i + j])
+
+    centering_windows("winGroupNode", dpg.get_viewport_client_width(), dpg.get_viewport_client_height(), 50 * params.scale)
     dpg.show_item("winGroupNode")
 
 
@@ -462,6 +497,7 @@ def btnOpenPort_callback(sender, app_data, user_data):
         init_nodes_temp_table()
         refresh_led_info_table()
         refresh_cyclic_runtime_table()
+        refresh_source_route_table()
 
     except Exception as err:
         print(err)
