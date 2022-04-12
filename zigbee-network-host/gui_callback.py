@@ -11,6 +11,7 @@ from net_cfg import *
 from helper_funcs import *
 from apscheduler.schedulers.background import BackgroundScheduler
 
+
 def brighten_route_callback():
     node_name = dpg.get_value("comboNodes")
 
@@ -30,6 +31,7 @@ def brighten_route_callback():
 
     net.log.log_debug('Lightening route to {} success.'.format(node_name))
 
+
 def menuTestMode_callback():
     if params.test_mode == True:
         params.test_mode = False
@@ -43,14 +45,14 @@ def menuTestMode_callback():
         dpg.show_item("btnLatencyTest")
 
 
-def get_temp_callback(sender, app_data, all_nodes = False):
+def get_temp_callback(sender, app_data, all_nodes=False):
     node_name = dpg.get_value("comboNodes")
-    #print(all_nodes)
+    # print(all_nodes)
     if all_nodes is True:
         node_name = "All Nodes"
         params.lastRuntimeTemp = time.gmtime()
         refresh_cyclic_runtime_table()
-    #print(node_name)
+    # print(node_name)
     if node_name == 'None' or node_name is None:  # user not selected
         net.log.log_error("Please select node first.")
         return
@@ -64,20 +66,20 @@ def get_temp_callback(sender, app_data, all_nodes = False):
     else:
         target_nodes = [node_name]
 
-    #print(target_nodes)
+    # print(target_nodes)
     for target_node in target_nodes:
         command_params = [{"category": 3, "id": 1, "params": [0]}]  # params 0 for None
         DATA_TO_SEND = json.dumps(command_params)
         send_command_to_device(target_node, DATA_TO_SEND, 3, 1, not all_nodes)
 
 
-def get_state_callback(sender, app_data, all_nodes:bool = False):
+def get_state_callback(sender, app_data, all_nodes: bool = False):
     node_name = dpg.get_value("comboNodes")
     if all_nodes is True:
         node_name = "All Nodes"
         params.lastRuntimeDevice = time.gmtime()
         refresh_cyclic_runtime_table()
-    #print(node_name)
+    # print(node_name)
     if node_name == 'None' or node_name is None:  # user not selected
         net.log.log_error("Please select node first.")
         return
@@ -92,7 +94,8 @@ def get_state_callback(sender, app_data, all_nodes:bool = False):
         DATA_TO_SEND = json.dumps(command_params)
         send_command_to_device(target_node, DATA_TO_SEND, 0, 0, not all_nodes)
 
-def get_power_callback(sender, app_data, all_nodes:bool = False):
+
+def get_power_callback(sender, app_data, all_nodes: bool = False):
     '''
     when use all_nodes param, is in cyclic tasks, then we disable log response to log windows,
     in order not to flood the pannel
@@ -117,8 +120,8 @@ def get_power_callback(sender, app_data, all_nodes:bool = False):
         send_command_to_device(target_node, DATA_TO_SEND, 0, 1, not all_nodes)
 
 
-def sync_clock_callback(sender, app_data, all_nodes:bool = False):
-    #node_name = dpg.get_value("comboNodes")
+def sync_clock_callback(sender, app_data, all_nodes: bool = False):
+    # node_name = dpg.get_value("comboNodes")
     # it is reasonable to send this command to all nodes
     node_name = "All Nodes"
     if node_name == 'None' or node_name is None:  # user not selected
@@ -144,14 +147,15 @@ def local_chbCyclicDevice(local_handler):
     local_handler.enter(dpg.get_value("sliderCyclicDevice"), 1, local_chbCyclicDevice, (local_handler,))
     local_handler.run(blocking=False)
 
+
 def chbCyclicDevice_callback(sender, app_data, user_data):
-    #if 'cyclic_get_device_task' in globals():
+    # if 'cyclic_get_device_task' in globals():
     #    pass
-    #print(dpg.get_value("sliderCyclicDevice"))
-    if app_data: # select as True
+    # print(dpg.get_value("sliderCyclicDevice"))
+    if app_data:  # select as True
         net.log.log_debug("Cyclic task get_Status ON.")
         interval = dpg.get_value("sliderCyclicDevice")
-        params.cyclic_get_device_task.add_job(get_state_callback,'interval', seconds=interval, args=(None,None,True))
+        params.cyclic_get_device_task.add_job(get_state_callback, 'interval', seconds=interval, args=(None, None, True))
         if not params.cyclic_get_device_task.running:
             params.cyclic_get_device_task.start()
     else:
@@ -161,13 +165,14 @@ def chbCyclicDevice_callback(sender, app_data, user_data):
         except Exception as e:
             # If event is not an event currently in the queue, this method will raise a ValueError.
             print(e)
-    #print(params.cyclic_get_device_task.queue)
+    # print(params.cyclic_get_device_task.queue)
+
 
 def chbCyclicPower_callback(sender, app_data, user_data):
     if app_data:  # select as True
         net.log.log_debug("Cyclic task get_Power ON.")
         interval = dpg.get_value("sliderCyclicPower")
-        params.cyclic_get_power_task.add_job(get_power_callback, 'interval', seconds=interval, args=(None,None,True))
+        params.cyclic_get_power_task.add_job(get_power_callback, 'interval', seconds=interval, args=(None, None, True))
         if not params.cyclic_get_power_task.running:
             params.cyclic_get_power_task.start()
     else:
@@ -179,11 +184,10 @@ def chbCyclicPower_callback(sender, app_data, user_data):
 
 
 def chbCyclicTemp_callback(sender, app_data, user_data):
-
     if app_data:  # select as True
         net.log.log_debug("Cyclic task get_Temp ON.")
         interval = dpg.get_value("sliderCyclicTemp")
-        params.cyclic_get_temp_task.add_job(get_temp_callback, 'interval', seconds=interval, args=(None,None,True) )
+        params.cyclic_get_temp_task.add_job(get_temp_callback, 'interval', seconds=interval, args=(None, None, True))
         if not params.cyclic_get_temp_task.running:
             params.cyclic_get_temp_task.start()
     else:
@@ -195,11 +199,11 @@ def chbCyclicTemp_callback(sender, app_data, user_data):
 
 
 def chbCyclicSync_callback(sender, app_data, user_data):
-
     if app_data:  # select as True
         net.log.log_debug("Cyclic task sync_Clock ON.")
         interval = dpg.get_value("sliderCyclicSync")
-        params.cyclic_sync_clock_task.add_job(sync_clock_callback, 'interval', seconds=interval, args=(None,None,True))
+        params.cyclic_sync_clock_task.add_job(sync_clock_callback, 'interval', seconds=interval,
+                                              args=(None, None, True))
         if not params.cyclic_sync_clock_task.running:
             params.cyclic_sync_clock_task.start()
     else:
@@ -215,6 +219,7 @@ def btnDisconnectCoord_callback():
         net.coord.close()
         net.log.log_debug("COORD disconnected, need refresh before next use!")
         print("COORD disconnected, please refresh before next use")
+
 
 def radioButtonLED1_callback():
     dpg.set_value("radioButtonLED2", None)
@@ -247,7 +252,8 @@ def btnGroupNode_callback():
                     dpg.add_checkbox(label=nodes_list[3 * i + j][-5:], callback=chbGroupNode_callback
                                      , user_data=nodes_list[3 * i + j])
 
-    centering_windows("winGroupNode", dpg.get_viewport_client_width(), dpg.get_viewport_client_height(), 50 * params.scale)
+    centering_windows("winGroupNode", dpg.get_viewport_client_width(), dpg.get_viewport_client_height(),
+                      50 * params.scale)
     dpg.show_item("winGroupNode")
 
 
@@ -277,13 +283,14 @@ def btnSendCommand_callback():
         # "All Nodes" appear only when select single
         if node_id == "All Nodes":
             for obj in net.available_nodes_obj:
-                read_command_and_send(obj,node_id)
+                read_command_and_send(obj, node_id)
         else:
             for obj in net.available_nodes_obj:
                 if obj.node_xbee.get_node_id() == node_id:  # find this node
-                    read_command_and_send(obj,node_id)
+                    read_command_and_send(obj, node_id)
 
-def read_command_and_send(obj,node_id):
+
+def read_command_and_send(obj, node_id):
     target_color = get_color_selector()
     command_params_1 = {"category": 2, "id": 0, "params": target_color}
 
@@ -401,7 +408,7 @@ def refresh_available_nodes():
         if dpg.get_value("comboNodes") not in net.available_nodes_id:
             dpg.set_value("comboNodes", None)
     dpg.configure_item("comboNodes", items=net.available_nodes_id + ["All Nodes"])
-    #print("available: ", net.available_nodes_id)
+    # print("available: ", net.available_nodes_id)
 
 
 def check_node_handshake_time():
@@ -518,6 +525,7 @@ def init_xbee_network():
     net.xbee_network.set_deep_discovery_timeouts(node_timeout=15, time_bw_requests=5, time_bw_scans=5)
     net.xbee_network.clear()
 
+
 def init_network_callback():
     # add network callback
     net.xbee_network.add_device_discovered_callback(callback_device_discovered)
@@ -526,8 +534,8 @@ def init_network_callback():
     net.coord.add_data_received_callback(coord_data_received_callback)
     net.coord.add_io_sample_received_callback(io_samples_callback)
 
-def btnRefresh_callback(sender, app_data, user_data):
 
+def btnRefresh_callback(sender, app_data, user_data):
     if not net.coord.is_open():
         net.coord = ZigBeeDevice(serial_param.PORT, serial_param.BAUD_RATE)
         net.coord.open()
@@ -558,8 +566,8 @@ def coord_data_received_callback(xbee_message):
 
     if params.test_mode:
         if net.last_command_time is not None:
-            net.latest_latency = round(mes_time - net.last_command_time,3)
-        print("latest_latency: ",net.latest_latency,'s')
+            net.latest_latency = round(mes_time - net.last_command_time, 3)
+        print("latest_latency: ", net.latest_latency, 's')
         logging.basicConfig(filename="log.txt", filemode='a',
                             level=logging.INFO, format="%(asctime)s %(message)s")
         logging.info("latest_latency: {}s".format(net.latest_latency))
@@ -571,7 +579,7 @@ def coord_data_received_callback(xbee_message):
         data = xbee_message.data.decode("utf8")
         output = check_and_join_msg(data, addr_64)
     except Exception as e:
-        #print(e)
+        # print(e)
         print("received data not in response format.")
     else:
         if output[0]:
@@ -586,7 +594,7 @@ def coord_data_received_callback(xbee_message):
 
             else:  # full msg and json decode success, then action
                 for data in data_eles:
-                    #print(response["category"])
+                    # print(response["category"])
 
                     if data.get("category") == -1:  # device power-on event
                         net.log.log_info("[Device {} power on.]".format(node_name))
@@ -597,35 +605,35 @@ def coord_data_received_callback(xbee_message):
 
                         if data.get("category") == 0:
                             if data.get("id") == 0:  # returned device state
-                                #print(str(data.get("response")[0]))
+                                # print(str(data.get("response")[0]))
                                 obj.device_state = params.device_state[data.get("response")[0]]
                                 obj.IMU_state = data.get("response")[1]
                                 obj.GPS_state = data.get("response")[2]
                                 obj.BLE_state = data.get("response")[3]
                             if data.get("id") == 1:  # returned power info
-                                obj.voltage = round(data.get("response")[0]/100,2)
-                                obj.current_draw = round(data.get("response")[1]/100,2)
+                                obj.voltage = round(data.get("response")[0] / 100, 2)
+                                obj.current_draw = round(data.get("response")[1] / 100, 2)
 
                         elif data.get("category") == 1:
                             pass
 
                         elif data.get("category") == 2:
-                            if data.get("id") == 0:   # returned set color response
+                            if data.get("id") == 0:  # returned set color response
                                 if check_response(data.get("response")[0], 2, 0):
                                     obj.rgba = dpg.get_value("colorSelector")
                                     refresh_led_info_table()
-                            elif data.get("id") == 1: # returned set brightness response
+                            elif data.get("id") == 1:  # returned set brightness response
                                 if check_response(data.get("response")[0], 2, 1):
                                     obj.brightness = dpg.get_value("sliderBrightness")
                                     refresh_led_info_table()
-                            elif data.get("id") == 2: # returned set effect response
+                            elif data.get("id") == 2:  # returned set effect response
                                 if check_response(data.get("response")[0], 2, 2):
                                     obj.light_effect = params.light_effect.index(dpg.get_value("radioButtonLEDEffect"))
                                     refresh_led_info_table()
 
 
                         elif data.get("category") == 3:
-                            if data.get("id") == 1:   # returned temperature
+                            if data.get("id") == 1:  # returned temperature
                                 if check_response(data.get("response")[0], 3, 1):
                                     obj.temperature = str(data.get("response")[0])
                                 refresh_nodes_temp_table()

@@ -68,6 +68,7 @@ def add_theme_to_gui():
 def set_gui_theme():
     dpg.bind_item_theme("winMenuAbout", "themeWinBgBlack")
 
+
 def _log(sender, app_data, user_data):
     print(f"sender: {sender}, \t app_data: {app_data}, \t user_data: {user_data}")
 
@@ -115,19 +116,17 @@ def latency_test_callback():
     print("*** latency test start ***")
 
     for i in range(num_msg):
-
-        command_params = [{"category":3, "id":1}] #24 bytes
+        command_params = [{"category": 3, "id": 1}]  # 24 bytes
         DATA_TO_SEND = json.dumps(command_params)
 
         send_command_to_device(node_name, DATA_TO_SEND, 3, 1)
-        time.sleep(2.2) # should leave enough time for one response
+        time.sleep(2.2)  # should leave enough time for one response
 
     logging.info("*** latency test success ***")
     print("*** latency test success ***")
 
 
 def payload_test_callback():
-
     node_name = dpg.get_value("comboNodes")
     if node_name == 'None' or node_name is None:
         net.log.log_debug("Please select a node to start payload test!")
@@ -143,23 +142,23 @@ def payload_test_callback():
     logging.info("*** payload test start ***")
     print("*** payload test start ***")
 
-    #element = {"category": 3, "id": 1, "params": [0]} # 40 bytes in total, can use 6 groups
-    element = [{"category":3, "id":1}] # 24 bytes, add 2 bytes when in json, in total we test 9 group
+    # element = {"category": 3, "id": 1, "params": [0]} # 40 bytes in total, can use 6 groups
+    element = [{"category": 3, "id": 1}]  # 24 bytes, add 2 bytes when in json, in total we test 9 group
 
     for i in range(num_set):
 
-        command_params = [{"category":3, "id":1}]
+        command_params = [{"category": 3, "id": 1}]
 
         # add payload acoording to group
         for j in range(i):
             command_params.append(element)
         DATA_TO_SEND = json.dumps(command_params)
 
-        logging.info("group {} of payload test".format(i+1))
-        print("group {} of payload test".format(i+1))
+        logging.info("group {} of payload test".format(i + 1))
+        print("group {} of payload test".format(i + 1))
         for k in range(10):
             send_command_to_device(node_name, DATA_TO_SEND, 3, 1)
-            time.sleep(2.5) # should leave enough time for one response
+            time.sleep(2.5)  # should leave enough time for one response
 
     logging.info("*** payload test success ***")
     print("*** payload test success ***")
@@ -206,7 +205,7 @@ def exit_callback():
         if net.coord is not None and net.coord.is_open():
             net.coord.close()
             print("COORD closed")
-        #dpg.show_item("winExitConfirm")
+        # dpg.show_item("winExitConfirm")
     except:
         pass  # not relevant here
 
@@ -439,7 +438,7 @@ def main():
                                borders_innerH=True, borders_outerH=True, borders_innerV=True,
                                borders_outerV=False, delay_search=True, tag="tableLinks"):
                     dpg.add_table_column(label="links")
-                    dpg.add_table_column(label="LQI index           ",width=100*params.scale, width_fixed=True)
+                    dpg.add_table_column(label="LQI index           ", width=100 * params.scale, width_fixed=True)
 
     with dpg.window(label="About Semester Project", tag="winMenuAbout", autosize=True, modal=False, show=False,
                     no_background=False, no_close=False, no_collapse=True):
@@ -471,7 +470,7 @@ def main():
         dpg.add_text("Current selected node:")
         items = ("A", "B", "C",)
         combo_id = dpg.add_combo(items, label="Nodes List", height_mode=dpg.mvComboHeight_Regular, tag="comboNodes")
-        dpg.add_color_edit((195, 67, 100, 255), label="color selector",tag="colorSelector",callback=None)
+        dpg.add_color_edit((195, 67, 100, 255), label="color selector", tag="colorSelector", callback=None)
         _help("Select color for LED control.")
         with dpg.tab_bar(tag="tabFuncPanel", reorderable=True):
             with dpg.tab(label="Node Info", tag="tabNodeInfo"):
@@ -490,7 +489,7 @@ def main():
                     with dpg.tooltip("btnFuncPanelSyncClock"):
                         dpg.add_text(
                             "Send set_zero_clock command to all nodes in the network.")
-                        dpg.bind_item_theme(dpg.last_item(),"themeBlue")
+                        dpg.bind_item_theme(dpg.last_item(), "themeBlue")
 
                 dpg.bind_item_theme("btnFuncPanelGetTemp", "themeBlue")
                 dpg.bind_item_theme("btnFuncPanelGetStatus", "themeBlue")
@@ -500,100 +499,110 @@ def main():
                 dpg.add_text("Set Cyclic Tasks Here")
                 with dpg.group(horizontal=True):
                     with dpg.table(header_row=True, row_background=False,
-                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,width=params.func_width*0.42,
+                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                                   width=params.func_width * 0.42,
                                    borders_outerV=False, delay_search=True, tag="tableFuncPanelCyclic"):
-
-                        dpg.add_table_column(label="Task",width_fixed=True, width=20*params.scale)
-                        dpg.add_table_column(label="T/F",width_fixed=True, width=10*params.scale)
+                        dpg.add_table_column(label="Task", width_fixed=True, width=20 * params.scale)
+                        dpg.add_table_column(label="T/F", width_fixed=True, width=10 * params.scale)
                         with dpg.tooltip(dpg.last_item()):
                             dpg.add_text(
                                 'Cyclically send command to all nodes.')
-                            #dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+                            # dpg.bind_item_theme(dpg.last_item(), "themeBlue")
 
-                        dpg.add_table_column(tag="colTableCyclicTime",label="Interval",width=15*params.scale)
+                        dpg.add_table_column(tag="colTableCyclicTime", label="Interval", width=15 * params.scale)
 
                         min_int = params.min_cyclic_interval
                         max_int = params.max_cyclic_interval
                         with dpg.table_row():
                             dpg.add_text("get_device_state")
-                            dpg.add_checkbox(tag="chbCyclicDevice",callback=chbCyclicDevice_callback)
-                            dpg.add_slider_int(tag="sliderCyclicDevice", default_value=10, min_value=min_int, max_value=max_int,
-                                               format="%d s",width=83*params.scale)
+                            dpg.add_checkbox(tag="chbCyclicDevice", callback=chbCyclicDevice_callback)
+                            dpg.add_slider_int(tag="sliderCyclicDevice", default_value=10, min_value=min_int,
+                                               max_value=max_int,
+                                               format="%d s", width=83 * params.scale)
 
                         with dpg.table_row():
                             dpg.add_text("get_power_info")
-                            dpg.add_checkbox(tag="chbCyclicPower",callback=chbCyclicPower_callback)
-                            dpg.add_slider_int(tag="sliderCyclicPower", default_value=10, min_value=min_int, max_value=max_int,
-                                               format="%d s",width=83*params.scale)
+                            dpg.add_checkbox(tag="chbCyclicPower", callback=chbCyclicPower_callback)
+                            dpg.add_slider_int(tag="sliderCyclicPower", default_value=10, min_value=min_int,
+                                               max_value=max_int,
+                                               format="%d s", width=83 * params.scale)
 
                         with dpg.table_row():
                             dpg.add_text("get_temperature")
-                            dpg.add_checkbox(tag="chbCyclicTemp",callback=chbCyclicTemp_callback)
-                            dpg.add_slider_int(tag="sliderCyclicTemp", default_value=10, min_value=min_int, max_value=max_int,
-                                               format="%d s",width=83*params.scale)
+                            dpg.add_checkbox(tag="chbCyclicTemp", callback=chbCyclicTemp_callback)
+                            dpg.add_slider_int(tag="sliderCyclicTemp", default_value=10, min_value=min_int,
+                                               max_value=max_int,
+                                               format="%d s", width=83 * params.scale)
 
                         with dpg.table_row():
                             dpg.add_text("sync_clock")
-                            dpg.add_checkbox(tag="chbCyclicSync",callback=chbCyclicSync_callback)
-                            dpg.add_slider_int(tag="sliderCyclicSync", default_value=10, min_value=min_int, max_value=max_int,
-                                               format="%d s",width=83*params.scale)
+                            dpg.add_checkbox(tag="chbCyclicSync", callback=chbCyclicSync_callback)
+                            dpg.add_slider_int(tag="sliderCyclicSync", default_value=10, min_value=min_int,
+                                               max_value=max_int,
+                                               format="%d s", width=83 * params.scale)
 
                     with dpg.table(header_row=True, row_background=False,
                                    borders_innerH=True, borders_outerH=True, borders_innerV=True,
                                    width=params.func_width * 0.16,
                                    borders_outerV=False, delay_search=True, tag="tableCyclicTaskRuntime"):
                         dpg.add_table_column(label="Last Runtime")
-                    #with dpg.collapsing_header(label="Nodes Temp", default_open=True):
-                    dpg.add_spacer(width=params.func_width*0.01)
+                    # with dpg.collapsing_header(label="Nodes Temp", default_open=True):
+                    dpg.add_spacer(width=params.func_width * 0.01)
 
                     with dpg.table(header_row=True, row_background=False,
-                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,width=params.func_width*0.35,
+                                   borders_innerH=True, borders_outerH=True, borders_innerV=True,
+                                   width=params.func_width * 0.35,
                                    borders_outerV=False, delay_search=True, tag="tableFuncPanelTemps"):
                         dpg.add_table_column(label="Node ID")
                         dpg.add_table_column(label="Temperature")
             with dpg.tab(label="LED Control", tag="tabLEDColor"):
                 with dpg.table(header_row=False, row_background=False,
-                            borders_innerH=False, borders_outerH=False, borders_innerV=False,
-                            borders_outerV=False, delay_search=True, tag="tableLEDColor"):
-                    dpg.add_table_column(label="", width = 220*params.scale,width_fixed=True)
+                               borders_innerH=False, borders_outerH=False, borders_innerV=False,
+                               borders_outerV=False, delay_search=True, tag="tableLEDColor"):
+                    dpg.add_table_column(label="", width=220 * params.scale, width_fixed=True)
                     dpg.add_table_column(label="")
                     with dpg.table_row():
                         with dpg.group():
-                            dpg.add_slider_float(label="Brightness",min_value=0.0,max_value=1.0,format='%.2f',tag="sliderBrightness")
+                            dpg.add_slider_float(label="Brightness", min_value=0.0, max_value=1.0, format='%.2f',
+                                                 tag="sliderBrightness")
                             with dpg.group(horizontal=True):
                                 with dpg.group():
                                     t = dpg.add_text("Light Effect      ")
 
                                     dpg.add_radio_button(params.light_effect, horizontal=False,
-                                                         tag="radioButtonLEDEffect",callback=None,default_value="all on  ")
+                                                         tag="radioButtonLEDEffect", callback=None,
+                                                         default_value="all on  ")
                                     with dpg.tooltip(t):
-                                        dpg.add_image(gui_image[4],width=120*params.scale, height=184*params.scale)
+                                        dpg.add_image(gui_image[4], width=120 * params.scale, height=184 * params.scale)
                                 with dpg.group():
                                     t = dpg.add_text("Confirm Node:")
                                     dpg.bind_item_theme(dpg.last_item(), "themeRed2")
-                                    dpg.add_radio_button(("Single ", "Group "),horizontal=False,
-                                                         tag="radioButtonNodeType",default_value="Single")
+                                    dpg.add_radio_button(("Single ", "Group "), horizontal=False,
+                                                         tag="radioButtonNodeType", default_value="Single")
                                     with dpg.tooltip(t):
-                                        dpg.add_text("Use node selector above for single node;\nto select a group, click Node Group button")
+                                        dpg.add_text(
+                                            "Use node selector above for single node;\nto select a group, click Node Group button")
                                     dpg.add_text("Select Command:")
                                     dpg.bind_item_theme(dpg.last_item(), "themeRed2")
-                                    dpg.add_checkbox(label="set Color",tag="chbColor")
+                                    dpg.add_checkbox(label="set Color", tag="chbColor")
                                     dpg.add_checkbox(label="set Brightness", tag="chbBrightness")
                                     dpg.add_checkbox(label="set Effect", tag="chbEffect")
 
-                            dpg.add_spacer(height=10*params.scale)
+                            dpg.add_spacer(height=10 * params.scale)
                             with dpg.group(horizontal=True):
-                                t = dpg.add_button(label="Group Node",tag="btnGroupNode",callback=btnGroupNode_callback)
+                                t = dpg.add_button(label="Group Node", tag="btnGroupNode",
+                                                   callback=btnGroupNode_callback)
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
                                 with dpg.tooltip(t):
                                     dpg.add_text("Open a widows to select node group")
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
-                                dpg.add_button(label="Send Command",tag="btnSendCommand",callback=btnSendCommand_callback)
+                                dpg.add_button(label="Send Command", tag="btnSendCommand",
+                                               callback=btnSendCommand_callback)
                                 dpg.bind_item_theme(dpg.last_item(), "themeBlue")
 
                         with dpg.group():
                             with dpg.group(horizontal=True):
-                                dpg.add_spacer(width=90*params.scale)
+                                dpg.add_spacer(width=90 * params.scale)
                                 dpg.add_text("LED Info Table")
                             with dpg.table(header_row=True, row_background=False,
                                            borders_innerH=False, borders_outerH=False, borders_innerV=False,
@@ -606,9 +615,11 @@ def main():
             with dpg.tab(label="Source Routing", tag="tabSourceRouting"):
                 dpg.add_text("Obtain and specify routes for remote nodes.")
                 with dpg.group(horizontal=True):
-                    dpg.add_button(label="Refresh Route",tag="btnSourceRoutingRefresh",callback=refresh_source_route_table)
-                    dpg.bind_item_theme(dpg.last_item(),"themeBlue")
-                    t = dpg.add_button(label="Brighten Up!", tag="btnSourceRoutingBrighten",callback=brighten_route_callback)
+                    dpg.add_button(label="Refresh Route", tag="btnSourceRoutingRefresh",
+                                   callback=refresh_source_route_table)
+                    dpg.bind_item_theme(dpg.last_item(), "themeBlue")
+                    t = dpg.add_button(label="Brighten Up!", tag="btnSourceRoutingBrighten",
+                                       callback=brighten_route_callback)
                     dpg.bind_item_theme(dpg.last_item(), "themeBlue")
                     with dpg.tooltip(t):
                         dpg.add_text("Lighting the route to specified remote node.")
@@ -616,7 +627,8 @@ def main():
                 with dpg.table(header_row=True, row_background=False,
                                borders_innerH=False, borders_outerH=False, borders_innerV=False,
                                borders_outerV=False, delay_search=True, tag="tableNodeRoute"):
-                    dpg.add_table_column(label="ID                      ",width=params.func_width*0.35,width_fixed=True)
+                    dpg.add_table_column(label="ID                      ", width=params.func_width * 0.35,
+                                         width_fixed=True)
                     dpg.add_table_column(label="Route")
 
                 pass
@@ -634,7 +646,7 @@ def main():
                     print("network unavailable, skip map")
                     net.log.log_debug("network unavailable, skip map")
                     dpg.add_text("Require network connection to display map.")
-                    dpg.bind_item_theme(dpg.last_item(),"themeBlue")
+                    dpg.bind_item_theme(dpg.last_item(), "themeBlue")
                 pass
 
     # put this windows at last, o.t.w. "modal" doesn't work
@@ -657,8 +669,8 @@ def main():
             serial_param.PORT = sorted(com_list)[0][0]
             # if not choose, default, use first choice
 
-    with dpg.window(label="Group Node", tag="winGroupNode", autosize = False, pos=params.winWelcome_pos, modal=True,
-                    no_close=False, show=False, user_data=[],width=200*params.scale, no_resize=True):
+    with dpg.window(label="Group Node", tag="winGroupNode", autosize=False, pos=params.winWelcome_pos, modal=True,
+                    no_close=False, show=False, user_data=[], width=200 * params.scale, no_resize=True):
         with dpg.table(header_row=False, row_background=False,
                        borders_innerH=False, borders_outerH=False, borders_innerV=False,
                        borders_outerV=False, delay_search=True, tag="tableGroupNode"):
@@ -670,20 +682,19 @@ def main():
             nodes_list = dpg.get_item_configuration("comboNodes")['items']
             if "All Nodes" in nodes_list:
                 nodes_list.remove("All Nodes")
-            row_num = math.ceil(len(nodes_list)/3)
+            row_num = math.ceil(len(nodes_list) / 3)
             for i in range(row_num):
                 with dpg.table_row():
                     for j in range(3):
                         try:
-                            nodes_list[3*i+j]
+                            nodes_list[3 * i + j]
                         except:
                             pass
                         else:
-                            dpg.add_checkbox(label=nodes_list[3*i+j], callback=chbGroupNode_callback
-                                             , user_data=nodes_list[3*i+j])
+                            dpg.add_checkbox(label=nodes_list[3 * i + j], callback=chbGroupNode_callback
+                                             , user_data=nodes_list[3 * i + j])
 
-
-        dpg.add_spacer(height=6*params.scale)
+        dpg.add_spacer(height=6 * params.scale)
         dpg.add_button(label="Confirm", callback=btnGroupNodeConfirm_callback)
 
     with dpg.window(label="Getting Started", tag="winMenuGettingStarted", autosize=True, modal=True,

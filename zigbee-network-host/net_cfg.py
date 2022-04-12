@@ -1,5 +1,6 @@
 import pyautogui
 
+
 class serial_param:
     PORT = ""
     BAUD_RATE = 115200
@@ -42,23 +43,22 @@ class params:
     rgb_green = [0, 255, 0]
     rgb_green2 = [255, 179, 13]
     rgb_white = [255, 255, 255]
-    rgb_blue = [0,191,255]
-
+    rgb_blue = [0, 191, 255]
 
     # current command list of host
-    command = [["get_device_state","get_power_info"],
+    command = [["get_device_state", "get_power_info"],
                ["set_clock_zero"],
-               ["set_all_rgb_colors","set_all_hp_brightness","set_led_programme_effect"],
-               ["get_gravity_vector","get_temperature","get_location"]]
+               ["set_all_rgb_colors", "set_all_hp_brightness", "set_led_programme_effect"],
+               ["get_gravity_vector", "get_temperature", "get_location"]]
 
-    device_state = ["Normal","Energy_Saving","Sleep","Off","Overheating","Error"]
+    device_state = ["Normal", "Energy_Saving", "Sleep", "Off", "Overheating", "Error"]
 
-    light_effect = ["all on  ", "pulsing ", "charging","blinking","rainbow","police "]
+    light_effect = ["all on  ", "pulsing ", "charging", "blinking", "rainbow", "police "]
 
     # test
-    #add latency test and payload test button, also calculate packet latency
+    # add latency test and payload test button, also calculate packet latency
     test_mode = True
-    #if demo_mode, we set color in NodeLEDInfo table diretly when we send command, let alone the execute response from remote
+    # if demo_mode, we set color in NodeLEDInfo table diretly when we send command, let alone the execute response from remote
     demo_mode = True
     # the maximum payload size for api frame is 255 bytes, we test 6*40 bytes
     groups_payload_test = 9
@@ -78,26 +78,28 @@ class params:
     min_cyclic_interval = 5
     max_cyclic_interval = 30
 
+
 # coordinator should be named COORD
 # adjust all gui params here...
 class network:
     def __init__(self):
         pass
+
     # network
-    coord = None         # zigbee coordinator
+    coord = None  # zigbee coordinator
     xbee_network = None  # class <XBeeNetwork>, represents an XBee Network
-    nodes = None         # nodes discovered, list of <remoteXbeeDevice> object
-    nodes_id = []        # nodes names, exclude coord
+    nodes = None  # nodes discovered, list of <remoteXbeeDevice> object
+    nodes_id = []  # nodes names, exclude coord
     available_nodes = []  # available nodes of <remoteXbeeDevice>, deal with node add and removal
-    available_nodes_obj = [] # available nodes of <node_container>
+    available_nodes_obj = []  # available nodes of <node_container>
     available_nodes_id = []
-    nodes_obj = []       # list of <node_container> object to save info
-    connections = None   # link in the network
+    nodes_obj = []  # list of <node_container> object to save info
+    connections = None  # link in the network
     NODE_ID = "NI"
 
     # logger
     log = None
-    last_command_time = None # used for latency test
+    last_command_time = None  # used for latency test
     latest_latency = 0
 
     # setting
@@ -110,13 +112,15 @@ class node_container:
     '''
     a wrapper for each node to cover all the info of the floodlight it represents
     '''
-    def __init__(self,xbee_obj):
+
+    def __init__(self, xbee_obj):
         self.node_xbee = xbee_obj
+
     # save get_...() response of each node
     node_xbee = None
-    route = None          # route from COORD to this node, Tuple with route data (source, des, hops (List): List of intermediate nodes)
-    is_available = True   # node status, true when init
-    temperature = "n/a"   # temperature, use string here
+    route = None  # route from COORD to this node, Tuple with route data (source, des, hops (List): List of intermediate nodes)
+    is_available = True  # node status, true when init
+    temperature = "n/a"  # temperature, use string here
     rssi = float('-inf')  # rssi value foe each node
     led_color = []
 
@@ -132,12 +136,13 @@ class node_container:
     BLE_state = None
 
     # default light status
-    rgba = [255,255,255,255]
+    rgba = [255, 255, 255, 255]
     brightness = 0
     light_effect = 0
 
     voltage = None
     current_draw = None
+
 
 # instantiate the <network> object
 global net
