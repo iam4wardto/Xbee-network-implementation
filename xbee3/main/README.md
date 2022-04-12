@@ -1,4 +1,4 @@
-The code on zigbee module initialize all settings required for the network and help encode, deocode payloads.
+The code on zigbee module initialize all settings required for the network and help encode, decode payloads.
 
 Requirements
 ------------
